@@ -1,0 +1,11 @@
+production: true
+auth:
+  adminUser: ${adminUser}
+  adminPassword: ${initialAdminPassword}
+proxy: edge
+service:
+  type: ClusterIP
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hostname: ${hostname}

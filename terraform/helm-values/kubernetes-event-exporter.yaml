@@ -1,0 +1,15 @@
+config:
+  route:
+    routes:
+    - match:
+      - receiver: opensearch
+  receivers:
+  - name: opensearch
+    opensearch:
+      hosts:
+      - https://${opensearch_endpoint}
+      username: ${opensearch_username}
+      password: ${opensearch_password}
+      index: ${cluster_name}-kube-events
+      indexFormat: "${cluster_name}-kube-events-{2006.01}"
+  clusterName: ${cluster_name}

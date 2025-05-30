@@ -1,0 +1,100 @@
+version: 0.2
+
+env:
+  variables:
+    CHART_REPO_NAME: ezl-helm-chart
+    SECRET_NAME: ezl-mgm
+
+phases:
+  pre_build:
+    commands:
+      - REPO_NAME=$(basename $FULL_REPOSITORY_NAME)
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - AWS_ACCOUNT_ID=$(echo $CODEBUILD_BUILD_ARN | cut -f5 -d ':')
+      - echo Logging in to Amazon ECR...
+      - |
+        aws ecr get-login-password \
+        --region $AWS_DEFAULT_REGION | \
+        docker login --username AWS --password-stdin \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      # 캐싱 활용을 위해 지정 필요
+      - export DOCKER_BUILDKIT=1
+      # 캐싱에 쓰일 이미지 pull, 해당 태그의 이미지가 없으면 그대로 진행
+      - docker pull $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:build || true
+      # 환경에 따라서 컨테이너 이미지 태그에 사용할 변수 적용
+      - | 
+        if [ $ENV = "dev" ]; then
+          IMAGE_TAG=${COMMIT_HASH:=latest}
+        else
+          IMAGE_TAG=$TAG_NAME
+        fi
+  build:
+    commands:
+      - echo Building the API Docker image...
+      # 캐시 이미지 생성 (캐싱 적용)
+      - |
+        docker build --platform linux/amd64 \
+        --target build \
+        --cache-from $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:build \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg IMAGE_TAG=$IMAGE_TAG \
+        --tag $REPO_NAME:build .
+      - |
+        docker tag \
+        $REPO_NAME:build \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:build
+      # 최종 이미지 생성 (캐싱 적용)
+      - |   
+        docker build --platform linux/amd64 \
+        --cache-from $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:build \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg IMAGE_TAG=$IMAGE_TAG \
+        --tag $REPO_NAME:$IMAGE_TAG .
+      - |
+        docker tag \
+        $REPO_NAME:$IMAGE_TAG \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+
+      # 빌드 결과 메시지 작성
+      - echo create build message...
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING -eq 1 ]; then
+          export BUILD_STATUS="succeeded ☀️"
+        else
+          export BUILD_STATUS="failed 🌧️"
+        fi
+      - export SLACK_MESSAGE="Build $BUILD_STATUS for project $REPO_NAME, tag $IMAGE_TAG, build number $CODEBUILD_BUILD_NUMBER"
+      - echo $SLACK_MESSAGE
+      # 도커 이미지 Push
+      - |
+        echo Pushing the Docker image...
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:build
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+      # 슬랙 웹훅 호출
+      - echo send build message to slack...
+      - |
+        curl -X POST -H 'Content-type: application/json' --data "{'text':'$SLACK_MESSAGE'}" $SLACK_WEBHOOK_URL
+
+      # Helm 차트 변수 업데이트
+      - |
+        if [ $ENV = "dev" ]; then
+          CODEPIPELINE_NAME=$(basename $CODEBUILD_INITIATOR)
+          COMMIT_MESSAGE=$(aws codepipeline list-pipeline-executions --pipeline-name $CODEPIPELINE_NAME --max-items 1 --query 'pipelineExecutionSummaries[0].sourceRevisions[0].revisionSummary' | jq -r '. | fromjson | .CommitMessage')
+          GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $SECRET_NAME --query 'SecretString' | jq -r | jq -r '.github.token')
+          git clone https://$GITHUB_TOKEN@github.com/ezllabs/$CHART_REPO_NAME.git
+          cd $CHART_REPO_NAME/$REPO_NAME
+          wget https://github.com/mikefarah/yq/releases/download/v4.44.2/yq_linux_amd64 -O /usr/bin/yq
+          chmod +x /usr/bin/yq
+          yq -i '.global.image.tag=strenv(IMAGE_TAG)' values_$ENV.yaml
+          git config --global user.email $AUTHOR_EMAIL
+          git config --global user.name $AUTHOR_ID
+          git add .
+      
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "$COMMIT_MESSAGE"
+            git push origin  
+          fi
+        fi

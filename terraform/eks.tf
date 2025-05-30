@@ -169,7 +169,7 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       name: default
     spec:
       amiSelectorTerms:
-      - alias: "${var.eks_node_ami_alias}"
+      - alias: "${var.eks_node_ami_alias_bottlerocket}"
       role: ${module.karpenter.node_iam_role_name}
       subnetSelectorTerms:
       - tags:

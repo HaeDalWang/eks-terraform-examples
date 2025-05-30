@@ -14,8 +14,12 @@ variable "eks_cluster_endpoint_public_access" {
   type        = bool
 }
 
-variable "eks_node_ami_alias" {
-  description = "EKS 노드 AMI 별칭"
+variable "eks_node_ami_alias_al2023" {
+  description = "EKS 노드 AMI 별칭 (al2023)"
+  type        = string
+}
+variable "eks_node_ami_alias_bottlerocket" {
+  description = "EKS 노드 AMI 별칭 (bottlerocket)"
   type        = string
 }
 
@@ -28,11 +32,6 @@ variable "karpenter_chart_version" {
   description = "Karpenter Helm 차트 버전"
   type        = string
 }
-
-# variable "external_dns_chart_version" {
-#   description = "Kubernetes ExternalDNS Helm 차트 버전"
-#   type        = string
-# }
 
 variable "aws_load_balancer_controller_chart_version" {
   description = "AWS Load Balancer Controller Helm 차트 버전"

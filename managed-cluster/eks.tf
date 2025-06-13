@@ -129,12 +129,12 @@ resource "kubernetes_namespace" "karpenter" {
 
 # Karpenter CRDs
 # 분리해서 설치 시 karpenter chart에서 "skip_crds = true" 옵션 사용 필수
-# resource "helm_release" "karpenter-crd" {
-#   name      = "karpenter-crd"
-#   chart     = "oci://public.ecr.aws/karpenter/karpenter-crd"
-#   version   = var.karpenter_chart_version
-#   namespace = kubernetes_namespace.karpenter.metadata[0].name
-# }
+resource "helm_release" "karpenter-crd" {
+  name      = "karpenter-crd"
+  chart     = "oci://public.ecr.aws/karpenter/karpenter-crd"
+  version   = var.karpenter_chart_version
+  namespace = kubernetes_namespace.karpenter.metadata[0].name
+}
 
 # Karpenter 메인 차트
 resource "helm_release" "karpenter" {
@@ -143,6 +143,8 @@ resource "helm_release" "karpenter" {
   version   = var.karpenter_chart_version
   namespace = kubernetes_namespace.karpenter.metadata[0].name
 
+  skip_crds = true
+  
   values = [
     <<-EOT
     settings:
@@ -156,6 +158,11 @@ resource "helm_release" "karpenter" {
         eks.amazonaws.com/role-arn: ${module.karpenter.iam_role_arn}
     serviceMonitor:
       enabled: true
+    controller:
+      resources:
+        requests:
+          cpu: 256m
+          memory: 256Mi
     EOT
   ]
 }

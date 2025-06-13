@@ -109,6 +109,8 @@ module "karpenter" {
   node_iam_role_name            = "${module.eks.cluster_name}-node-role"
   node_iam_role_use_name_prefix = false
 
+  # Karpenter 1.0 이상 버전에 필요한 policy를 사용하도록 설정 (공식문서 input에 없음 주의)
+  enable_v1_permissions = true
   # Karpenter에 부여할 IAM 역할 생성
   enable_irsa            = true
   irsa_oidc_provider_arn = module.eks.oidc_provider_arn

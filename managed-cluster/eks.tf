@@ -1,7 +1,7 @@
 # EKS 클러스터
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.36.0"
+  version = "20.37.0"
 
   cluster_name    = local.project
   cluster_version = var.eks_cluster_version
@@ -103,7 +103,7 @@ module "eks" {
 # Karpenter 구성에 필요한 AWS 리소스 생성
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "20.36.0"
+  version = "20.37.0"
 
   cluster_name                  = module.eks.cluster_name
   node_iam_role_name            = "${module.eks.cluster_name}-node-role"
@@ -285,7 +285,7 @@ resource "kubernetes_annotations" "default_storageclass" {
 # AWS Load Balancer Controller에 부여할 IAM 역할 및 Pod Identity Association
 module "aws_load_balancer_controller_pod_identity" {
   source  = "terraform-aws-modules/eks-pod-identity/aws"
-  version = "1.11.0"
+  version = "1.12.0"
 
   name = "aws-load-balancer-controller"
 

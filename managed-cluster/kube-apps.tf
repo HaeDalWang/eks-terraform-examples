@@ -15,10 +15,11 @@ resource "helm_release" "ingress_nginx" {
 
   values = [
     templatefile("${path.module}/helm-values/ingress-nginx.yaml", {
+      # Server Name Indication(SNI) 기반으로 인증서을 계속 추가 가능
       lb_acm_certificate_arn = join(",", [
         data.aws_acm_certificate.existing.arn,
         aws_acm_certificate_validation.test.certificate_arn
-        ])
+      ])
       whitelist_source_range = join(",", local.whitelist_ip_range)
     })
   ]
@@ -69,30 +70,10 @@ resource "helm_release" "ingress_nginx" {
 #   }
 # }
 
-# # Grafana assume 정책 설정
-# resource "aws_iam_policy" "grafana_account_access" {
-#   name = "grafana-account-access"
-
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = [
-#           "sts:AssumeRole",
-#         ]
-#         Effect = "Allow"
-#         Resource = [
-#           "*"
-#         ]
-#       },
-#     ]
-#   })
-# }
-
 # # Thanos 컴포넌트에 부여할 IAM 역할
 # module "grafana_irsa" {
 #   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-#   version = "5.55.0"
+#   version = "5.58.0"
 
 #   role_name = "${module.eks.cluster_name}-cluster-grafana-role"
 
@@ -110,11 +91,10 @@ resource "helm_release" "ingress_nginx" {
 #   }
 # }
 
-# # Thanos 사이드카에서 Prometheus 지표를 보낼 버킷
-# # 생성에 실패하면 새로운 버킷으로 시도합니다
+# Thanos 사이드카에서 Prometheus 지표를 보낼 버킷
+# 생성에 실패하면 새로운 버킷으로 시도합니다
 # resource "aws_s3_bucket" "thanos" {
-#   bucket = "headal-thanos-storage"
-
+#   bucket = "seungdobae-thanos-storage"
 #   force_destroy = true
 # }
 
@@ -145,7 +125,7 @@ resource "helm_release" "ingress_nginx" {
 # # Thanos 컴포넌트에 부여할 IAM 역할
 # module "thanos_irsa" {
 #   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-#   version = "5.39.0"
+#   version = "5.58.0"
 
 #   role_name = "${module.eks.cluster_name}-cluster-thanos-role"
 
@@ -172,11 +152,10 @@ resource "helm_release" "ingress_nginx" {
 #     name      = "thanos-objstore-config"
 #     namespace = kubernetes_namespace.prometheus.metadata[0].name
 #   }
-
 #   data = {
 #     "thanos.yml" = yamlencode({
 #       type   = "s3"
-#       prefix = "mgm"
+#       prefix = "mng"
 #       config = {
 #         bucket   = aws_s3_bucket.thanos.bucket
 #         endpoint = replace(aws_s3_bucket.thanos.bucket_regional_domain_name, "${aws_s3_bucket.thanos.bucket}.", "")

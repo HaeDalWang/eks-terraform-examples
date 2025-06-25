@@ -1,8 +1,8 @@
 # 로컬 환경변수 지정
 locals {
-  project             = "seungdobae"             # 클러스터의 이름/ArgoCD 클러스터 이름/리소스의 Prefix 등 사용
-  service_domain_name = "${var.domain_name}" # 클러스터에 기반이 되는 도메인
-  tags = {                                       # 모든 리소스에 적용되는 전역 태그
+  project             = "seungdobae"    # 클러스터의 이름/ArgoCD 클러스터 이름/리소스의 Prefix 등 사용
+  service_domain_name = var.domain_name # 클러스터에 기반이 되는 도메인
+  tags = {                              # 모든 리소스에 적용되는 전역 태그
     "terraform" = "true"
   }
 }

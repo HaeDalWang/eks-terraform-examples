@@ -1,7 +1,7 @@
 # 기존 인증서 조회
 data "aws_acm_certificate" "existing" {
-  domain   = "${local.service_domain_name}"
-  statuses = ["ISSUED"]
+  domain      = local.service_domain_name
+  statuses    = ["ISSUED"]
   most_recent = true
 }
 

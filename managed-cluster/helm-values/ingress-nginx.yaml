@@ -24,6 +24,6 @@ controller:
     use-forwarded-headers: "true"
     whitelist-source-range: ${whitelist_source_range}
   metrics:
-    enabled: true
+    enabled: false
     serviceMonitor:
       enabled: true

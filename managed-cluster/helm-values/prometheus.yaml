@@ -1,4 +1,4 @@
-fullnameOverride: kube-prometheus
+fullnameOverride: kps
 prometheus:
   serviceAccount:
     annotations:

@@ -6,60 +6,6 @@ module "eks" {
   cluster_name    = local.project
   cluster_version = var.eks_cluster_version
 
-  # EKS Add-on
-  cluster_addons = {
-    coredns = {
-      # 클러스터 버전에 맞게 최신 버전을 동적으로 불러와서 적용
-      most_recent = true
-      configuration_values = jsonencode({
-        # Karpenter가 실행되려면 CoreDNS가 필수 구성요소기 때문에 Fargate에 배포
-        computeType = "Fargate"
-        resources = {
-          limits = {
-            cpu    = "0.25"
-            memory = "256M"
-          }
-          requests = {
-            cpu    = "0.25"
-            memory = "256M"
-          }
-        }
-      })
-    }
-    kube-proxy = {
-      most_recent = true
-    }
-    vpc-cni = {
-      most_recent = true
-    }
-    eks-pod-identity-agent = {
-      most_recent = true
-    }
-    aws-ebs-csi-driver = {
-      most_recent = true
-    }
-    metrics-server = {
-      most_recent = true
-      configuration_values = jsonencode({
-        resources = {
-          requests = {
-            cpu    = "100m"
-            memory = "200Mi"
-          }
-        }
-      })
-    }
-    external-dns = {
-      most_recent = true
-      configuration_values = jsonencode({
-        policy     = "sync"
-        extraArgs = [
-          "--annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)"
-        ]
-      })
-    }
-  }
-
   vpc_id = module.vpc.vpc_id
   # 노드그룹을 사용할 경우 노드가 생성되는 서브넷
   subnet_ids = module.vpc.private_subnets
@@ -100,6 +46,29 @@ module "eks" {
   cluster_enabled_log_types = []
 }
 
+# EKS 클러스터 버전에 맞는 CoreDNS 애드온 버전 불러오기
+data "aws_eks_addon_version" "coredns" {
+  addon_name         = "coredns"
+  kubernetes_version = module.eks.cluster_version
+}
+
+# CoreDNS - 먼저 생성하지 않으면 Karpenter가 작동을안함 > 노드가없음 > 나머지가 안뜸
+resource "aws_eks_addon" "coredns" {
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = "coredns"
+  addon_version               = data.aws_eks_addon_version.coredns.version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+  configuration_values = jsonencode({
+    # Karpenter가 실행되려면 CoreDNS가 필수 구성요소기 때문에 Fargate에 배포
+    computeType = "Fargate"
+  })
+
+  depends_on = [
+    module.eks.fargate_profiles
+  ]
+}
+
 # Karpenter 구성에 필요한 AWS 리소스 생성
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
@@ -132,21 +101,23 @@ resource "kubernetes_namespace" "karpenter" {
 # Karpenter CRDs
 # 분리해서 설치 시 karpenter chart에서 "skip_crds = true" 옵션 사용 필수
 resource "helm_release" "karpenter-crd" {
-  name      = "karpenter-crd"
-  chart     = "oci://public.ecr.aws/karpenter/karpenter-crd"
-  version   = var.karpenter_chart_version
-  namespace = kubernetes_namespace.karpenter.metadata[0].name
+  name       = "karpenter-crd"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter-crd"
+  version    = var.karpenter_chart_version
+  namespace  = kubernetes_namespace.karpenter.metadata[0].name
 }
 
 # Karpenter 메인 차트
 resource "helm_release" "karpenter" {
-  name      = "karpenter"
-  chart     = "oci://public.ecr.aws/karpenter/karpenter"
-  version   = var.karpenter_chart_version
-  namespace = kubernetes_namespace.karpenter.metadata[0].name
+  name       = "karpenter"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter"
+  version    = var.karpenter_chart_version
+  namespace  = kubernetes_namespace.karpenter.metadata[0].name
 
   skip_crds = true
-  
+
   values = [
     <<-EOT
     settings:
@@ -178,7 +149,7 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       name: default
     spec:
       amiSelectorTerms:
-      - alias: "${var.eks_node_ami_alias_bottlerocket}"
+      - alias: "${var.eks_node_ami_alias_al2023}"
       role: ${module.karpenter.node_iam_role_name}
       subnetSelectorTerms:
       - tags:
@@ -243,10 +214,47 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
   ]
 }
 
+# EKS-Addon
+locals {
+  eks_addons = [
+    "kube-proxy",
+    "vpc-cni",
+    "metrics-server",
+    "aws-ebs-csi-driver",
+    "eks-pod-identity-agent",
+    "external-dns"
+  ]
+}
+
+data "aws_eks_addon_version" "this" {
+  for_each = toset(local.eks_addons)
+
+  addon_name         = each.key
+  kubernetes_version = module.eks.cluster_version
+}
+
+resource "aws_eks_addon" "this" {
+  for_each = toset(local.eks_addons)
+
+  cluster_name                = module.eks.cluster_name
+  addon_name                  = each.key
+  addon_version               = data.aws_eks_addon_version.this[each.key].version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    kubectl_manifest.karpenter_default_nodepool
+  ]
+
+  timeouts {
+    create = "5m"
+  }
+}
+
 # EBS CSI 드라이버를 사용하는 스토리지 클래스
 resource "kubernetes_storage_class" "ebs_sc" {
   # EBS CSI 드라이버가 EKS Addon을 통해서 생성될 경우
-  count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
+  # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
 
   metadata {
     name = "ebs-sc"
@@ -264,7 +272,7 @@ resource "kubernetes_storage_class" "ebs_sc" {
 
 # 기본값으로 생성된 스토리지 클래스 해제
 resource "kubernetes_annotations" "default_storageclass" {
-  count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
+  # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
 
   api_version = "storage.k8s.io/v1"
   kind        = "StorageClass"

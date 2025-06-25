@@ -5,11 +5,11 @@ domain_name         = "seungdobae.com"
 # export K8S_VERSION="1.33"
 # al2023: aws ssm get-parameters-by-path --path "/aws/service/eks/optimized-ami/$K8S_VERSION/amazon-linux-2023/" --recursive | jq -cr '.Parameters[].Name' | grep -v "recommended" | awk -F '/' '{print $10}' | sed -r 's/.*(v[[:digit:]]+)$/\1/' | sort | uniq
 # bottlerocket: aws ssm get-parameters-by-path --path "/aws/service/bottlerocket/aws-k8s-$K8S_VERSION" --recursive | jq -cr '.Parameters[].Name' | grep -v "latest" | awk -F '/' '{print $7}' | sort | uniq
-eks_node_ami_alias_al2023  = "al2023@v20250519"
-eks_node_ami_alias_bottlerocket  = "bottlerocket@1.40.0-807acc8b"
+eks_node_ami_alias_al2023       = "al2023@v20250519"
+eks_node_ami_alias_bottlerocket = "bottlerocket@1.40.0-807acc8b"
 
 # 기준일: 2025년 5월 29일
-karpenter_chart_version                    = "1.5.0"
+karpenter_chart_version                    = "1.5.1"
 aws_load_balancer_controller_chart_version = "1.13.2"
 ingress_nginx_chart_version                = "4.12.2"
 argocd_chart_version                       = "8.0.11"

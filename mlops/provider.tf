@@ -35,7 +35,7 @@ terraform {
   backend "s3" {
     region         = "ap-northeast-2"
     bucket         = "seungdobae-terraform-state"
-    key            = "terraform/terraform.tfstate"
+    key            = "mlops/terraform.tfstate"
     dynamodb_table = "seungdobae-terraform-lock"
     encrypt        = true
   }
@@ -65,7 +65,7 @@ provider "kubernetes" {
 
 # Helm 제공자 설정
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = module.eks.cluster_endpoint
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     token                  = data.aws_eks_cluster_auth.this.token

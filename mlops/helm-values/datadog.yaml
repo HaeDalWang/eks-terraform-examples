@@ -1,0 +1,54 @@
+datadog:
+  site: "ap1.datadoghq.com"
+  apiKeyExistingSecret: "datadog-secret"
+  # 모니터링 대상 설정
+  apm:
+    instrumentation:
+      enabled: true
+      targets:
+        - name: "default-target"
+          ddTraceVersions:
+            java: "1"
+            python: "3"
+            js: "5"
+            php: "1"
+            dotnet: "3"
+  # 로그 수집 설정
+  logs:
+    enabled: true
+    containerCollectAll: true
+  # 보안 설정
+  asm:
+    threats:
+      enabled: true
+  # 보안 설정
+  securityAgent:
+    runtime:
+      enabled: true
+    compliance:
+      enabled: true
+  # 보안 설정
+  sbom:
+    containerImage:
+      enabled: true
+    host:
+      enabled: true
+  # 서비스 모니터링 설정
+  serviceMonitoring:
+    enabled: true
+  networkMonitoring:
+    enabled: true
+  processAgent:
+    processCollection: true
+# clusterAgent 설정
+clusterAgent:
+  # Fargate에는 배포하지 않도록 affinity 설정
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: eks.amazonaws.com/compute-type
+              operator: NotIn
+              values:
+                - fargate

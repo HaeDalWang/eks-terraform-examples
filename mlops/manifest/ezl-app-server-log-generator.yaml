@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezl-app-server
+  namespace: intgapp
+  labels:
+    app.kubernetes.io/instance: ezl-app-server
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ezl-app-server
+    app.kubernetes.io/version: 1.16.0
+    argocd.argoproj.io/instance: ezl-app-server-prod
+    helm.sh/chart: ezl-app-server-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ezl-app-server
+      app.kubernetes.io/name: ezl-app-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: ezl-app-server
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ezl-app-server
+        app.kubernetes.io/version: 1.16.0
+        helm.sh/chart: ezl-app-server-0.1.0
+    spec:
+      containers:
+      - name: ezl-app-server
+        image: alpine:latest
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          counter=0
+          while true; do            
+            case $counter in
+              0)
+                echo "$(date -Iseconds | cut -d'T' -f1)T$(date -Iseconds | cut -d'T' -f2 | cut -d'+' -f1) | INFO | ezlwalk.py:188 | EzlwalkDailyMission Check DailyUserStepCountLog updated: user_id=527972 device_id=603148 last_date=$(date -Iseconds | cut -d'T' -f1) step_count=2812"
+                ;;
+              1)
+                echo "$(date -Iseconds | cut -d'T' -f1)T$(date -Iseconds | cut -d'T' -f2 | cut -d'+' -f1) | DEBUG | hyphen.py:75 | {\"sucsFalr\": \"success\", \"rsltCd\": \"HCO000\", \"rsltMesg\": \"정상으로 처리되었어요\", \"rsltObj\": {\"uscoSno\": 23, \"mbrID\": \"prod:59bdc3d4-0126-4fb6-a77b-e05d40917d8c\", \"mbrNm\": \"****\", \"rmdAmt\": 106, \"ttlPsbAmt\": 106, \"ttlExAmt\": 0, \"psbFAmt\": 106, \"psbPAmt\": 0, \"payAmt\": 0, \"freeAmt\": 106, \"exPAmt\": 0, \"exFAmt\": 0}}"
+                ;;
+              2)
+                echo "$(date -Iseconds | cut -d'T' -f1)T$(date -Iseconds | cut -d'T' -f2 | cut -d'+' -f1) | INFO | glogging.py:363 | 10.243.12.131 - - \"GET /api/intgapp/ping/ HTTP/1.1\" 200 4 | duration=0.001143"
+                ;;
+              3)
+                echo "$(date -Iseconds | cut -d'T' -f1)T$(date -Iseconds | cut -d'T' -f2 | cut -d'+' -f1) | WARNING | log.py:241 | Unauthorized: /v1/intgapp/ezlwalk/users/step_count/"
+                ;;
+              4)
+                echo "$(date -Iseconds | cut -d'T' -f1)T$(date -Iseconds | cut -d'T' -f2 | cut -d'+' -f1) | INFO | glogging.py:363 | 10.243.11.125 - - \"POST /api/intgapp/ezlwalk/users/mission/daily/ HTTP/1.1\" 200 263 | duration=0.035754"
+                ;;
+              5)
+                echo "{\"timestamp\": \"$(date -Iseconds)\", \"level\": \"INFO\", \"message\": \"User action completed\", \"user_id\": 12345, \"action\": \"login\", \"ip\": \"10.243.11.125\"}"
+                ;;
+              6)
+                echo ""
+                ;;
+            esac
+            counter=$((($counter + 1) % 7))
+            sleep 3
+          done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+      restartPolicy: Always
+      # Fluent Bit과 같은 노드에 배포하도록 강제
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate

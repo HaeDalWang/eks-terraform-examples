@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezl-code-push-server
+  namespace: intgapp
+  labels:
+    app.kubernetes.io/instance: ezl-code-push-server
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ezl-code-push-server
+    app.kubernetes.io/version: 1.16.0
+    argocd.argoproj.io/instance: ezl-code-push-server-prod
+    helm.sh/chart: ezl-code-push-server-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ezl-code-push-server
+      app.kubernetes.io/name: ezl-code-push-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: ezl-code-push-server
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ezl-code-push-server
+        app.kubernetes.io/version: 1.16.0
+        helm.sh/chart: ezl-code-push-server-0.1.0
+    spec:
+      containers:
+      - name: ezl-code-push-server
+        image: alpine:latest
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          counter=0
+          while true; do            
+            case $counter in
+              0)
+                echo "[REST] Received GET request at /"
+                ;;
+              1)
+                echo "[REST] Received POST request at /v0.1/public/codepush/report_status/deploy"
+                ;;
+              2)
+                echo ""
+                ;;
+            esac
+            counter=$((($counter + 1) % 3))
+            sleep 5
+          done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+      restartPolicy: Always
+      # Fluent Bit과 같은 노드에 배포하도록 강제
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate

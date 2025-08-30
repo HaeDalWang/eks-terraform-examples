@@ -1,0 +1,52 @@
+clusterName: "opensearch-cluster"
+nodeGroup: "master"
+
+replicas: 1
+
+opensearchJavaOpts: "-Xmx512M -Xms512M"
+
+extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    value: "Seungdobae123!"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "512M"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+persistence:
+  enabled: true
+  size: 30Gi
+
+config:
+  opensearch.yml: |
+    cluster.name: opensearch-cluster
+    network.host: 0.0.0.0
+    plugins:
+      security:
+        disabled: true
+    discovery.type: single-node
+    bootstrap.memory_lock: false
+
+# single-node 모드 설정
+singleNode: true
+
+# cluster.initial_master_nodes 설정 비활성화
+masterService: ""
+clusterInitialMasterNodes: []
+
+service:
+  type: ClusterIP
+  port: 9200
+
+# Fargate 회피: PVC/DaemonSet/StatefulSet 워크로드는 Fargate 미지원 → EC2 노드에만 스케줄
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: eks.amazonaws.com/compute-type
+              operator: DoesNotExist

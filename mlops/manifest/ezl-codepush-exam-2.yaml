@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezl-codepush-exam-2
+  namespace: intgapp
+  labels:
+    app.kubernetes.io/name: ezl-codepush-exam-2
+    app.kubernetes.io/instance: ezl-codepush-exam-2
+    app.kubernetes.io/version: v1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ezl-codepush-exam-2
+      app.kubernetes.io/instance: ezl-codepush-exam-2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ezl-codepush-exam-2
+        app.kubernetes.io/instance: ezl-codepush-exam-2
+        app.kubernetes.io/version: v1.0
+    spec:
+      containers:
+      - name: log-generator
+        image: alpine:latest
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "Starting EZL CodePush Exam 2 Log Generator..."
+            counter=1
+            while true; do
+              # 4가지 로그 패턴을 순환
+              case $((counter % 4)) in
+                1)
+                  echo "Updated check hset called and key is new. cache key: deploymentKey:QO8jUnf_LFxFId037bySQH_wnAXzid_5"
+                  ;;
+                2)
+                  echo "Updated check ttl: 600"
+                  ;;
+                3)
+                  current_date=$(date '+%Y-%m-%d %H:%M:%S')
+                  echo "$current_date updated check ttl: 600"
+                  ;;
+                0)
+                  current_date=$(date '+%Y-%m-%d %H:%M:%S')
+                  echo "$current_date Updated check hset called and key is new. cache key: deploymentKey:QO8jUnf_LFxFId037bySQH_wnAXzid_5"
+                  ;;
+              esac
+              
+              counter=$((counter + 1))
+              sleep 3
+            done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 50m
+            memory: 32Mi
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ezl-codepush-exam-2
+  namespace: intgapp
+  labels:
+    app.kubernetes.io/name: ezl-codepush-exam-2
+    app.kubernetes.io/instance: ezl-codepush-exam-2
+spec:
+  selector:
+    app.kubernetes.io/name: ezl-codepush-exam-2
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

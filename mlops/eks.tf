@@ -88,6 +88,7 @@ module "karpenter" {
   node_iam_role_additional_policies = {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
     AmazonEBSCSIDriverPolicy     = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    ExternalDNSPolicy            = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
   }
 }
 
@@ -227,7 +228,7 @@ locals {
     "metrics-server",
     "aws-ebs-csi-driver",
     "eks-pod-identity-agent",
-    "external-dns"
+    "snapshot-controller"
   ]
 }
 
@@ -336,5 +337,27 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   depends_on = [
     kubectl_manifest.karpenter_default_nodepool
+  ]
+}
+
+resource "helm_release" "external_dns" {
+  name       = "external-dns"
+  repository = "https://kubernetes-sigs.github.io/external-dns"
+  chart      = "external-dns"
+  version    = "1.14.5"
+  namespace  = "kube-system"
+
+  values = [
+    <<-EOT
+    txtOwnerId: ${module.eks.cluster_name}
+    policy: sync
+    domainFilters:
+      - seungdobae.com
+    sources:
+      - service
+      - ingress
+    extraArgs:
+      - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
+    EOT
   ]
 }

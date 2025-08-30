@@ -1,0 +1,14 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: ebs-snapshot-class
+  annotations:
+    snapshot.storage.kubernetes.io/is-default-class: "true"
+driver: ebs.csi.aws.com
+deletionPolicy: Delete  # 또는 Retain (스냅샷 보존)
+parameters:
+  # EBS 스냅샷 태그 설정
+  tagSpecification_1: "Name=EKS-Snapshot-{{ .VolumeSnapshotName }}"
+  tagSpecification_2: "Environment=mlops"
+  tagSpecification_3: "ManagedBy=Kubernetes"
+

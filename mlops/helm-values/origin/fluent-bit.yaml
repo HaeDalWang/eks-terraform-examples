@@ -1,0 +1,228 @@
+priorityClassName: system-node-critical
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: ${fluentbit_role_arn}
+luaScripts:
+  filter.lua: |
+    function remove_stdout_f(tag, timestamp, record)
+        local log = record["log"]
+        if log == nil then
+            return 0, timestamp, record
+        end
+        if string.match(log, "^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%d%.%d+Z stdout F%s*$") then
+            return -1, timestamp, record
+        end
+        return 0, timestamp, record
+    end
+config:
+  inputs: |
+    [INPUT]
+        Name                tail     
+        Tag                 app.*
+        Path                /var/log/containers/*_${app_namespace}_*.log
+        Mem_Buf_Limit       5MB
+        Skip_Long_Lines     On
+        multiline.parser    multiline-app-server
+    
+    [INPUT]
+        Name                tail     
+        Tag                 nginx.*
+        Path                /var/log/containers/*_ingress-nginx_*.log
+        Mem_Buf_Limit       5MB
+        Skip_Long_Lines     On
+        multiline.parser    cri
+        
+  filters: |
+    [FILTER]
+        Name                rewrite_tag
+        Match               nginx.*
+        Rule                $stream stdout nginx-access-log false
+    
+    [FILTER]
+        Name                rewrite_tag
+        Match               nginx.*
+        Rule                $stream stderr nginx-error-log false
+  
+    [FILTER]
+        Name                modify
+        Match               *
+        Remove              _p
+        Remove              stream
+        Remove              logtag
+        Rename              message log
+        
+    [FILTER]
+        Name                parser
+        Match               nginx-access-log
+        Key_Name            log
+        Parser              k8s-nginx-ingress
+
+    [FILTER]
+        Name                parser
+        Match               nginx-error-log
+        Key_Name            log
+        Parser              k8s-nginx-ingress
+        
+    [FILTER]
+        Name                grep
+        Match               nginx-access-log
+        Regex               proxy_upstream_name ezl
+
+    # JSON 형식을 검사하여 태그를 user_action으로 변경하는 필터 추가
+    [FILTER]
+        Name                rewrite_tag
+        Match               app.*
+        Rule                $log ^\{.*\}$ user_action false
+
+    [FILTER]
+        Name                parser
+        Match               user_action
+        Key_Name            log
+        Parser              user-action-parser
+        Reserve_Data        On
+        Preserve_Key        On
+    
+    [FILTER]
+        Name                grep
+        Match               app.*
+        Exclude             log kube-probe
+        Exclude             log Connection pool is full
+        Exclude             log public/codepush/update_check
+
+    [FILTER]
+        Name                kubernetes
+        Match               app.*
+        Kube_Tag_Prefix     app.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Annotations         Off
+        
+    [FILTER]
+        Name                nest
+        Match               app.*
+        Operation           lift
+        Nested_under        kubernetes
+        Add_prefix          kubernetes.
+    
+    [FILTER]
+        Name                modify
+        Match               app.*
+        Remove              time
+        Remove              kubernetes.container_hash
+        Remove              kubernetes.container_name
+        Remove              kubernetes.docker_id
+        Remove              kubernetes.namespace_name
+        Remove              kubernetes.pod_id
+        Remove              kubernetes.pod_name
+
+    [FILTER]
+        Name                nest
+        Match               app.*
+        Operation           lift
+        Nested_under        kubernetes.labels
+        Add_prefix          kubernetes_labels.
+
+    [FILTER]
+        Name                modify
+        Match               app.*
+        Remove              kubernetes_labels.app.kubernetes.io/managed-by
+        Remove              kubernetes_labels.app.kubernetes.io/version
+        Remove              kubernetes_labels.helm.sh/chart
+        Remove              kubernetes_labels.pod-template-hash
+
+    [FILTER]
+        Name                nest
+        Match               app.*
+        Operation           nest
+        Wildcard            kubernetes_labels.*
+        Nest_under          kubernetes.labels
+        Remove_prefix       kubernetes_labels.
+
+    [FILTER]
+        Name                nest
+        Match               app.*
+        Operation           nest
+        Wildcard            kubernetes.*
+        Nested_under        kubernetes
+        Remove_prefix       kubernetes.
+
+    [FILTER]
+        Name                lua
+        Match               app.*
+        Script              /fluent-bit/scripts/filter.lua
+        Call                remove_stdout_f
+    
+  outputs: |
+    [OUTPUT]
+        Name                es
+        Match               app.*
+        Logstash_Format     On
+        Logstash_Prefix     ${cluster_name}-app
+        Logstash_DateFormat %Y.%m
+        Host                ${es_endpoint}
+        Port                443
+        TLS                 On
+        AWS_Auth            On
+        AWS_Region          ap-northeast-2
+        Retry_Limit         False
+        Suppress_Type_Name  On
+        
+    [OUTPUT]
+        Name                es
+        Match               nginx-access-log
+        Logstash_Format     On
+        Logstash_Prefix     ${cluster_name}-nginx-access
+        Logstash_DateFormat %Y.%m
+        Host                ${es_endpoint}
+        Port                443
+        TLS                 On
+        AWS_Auth            On
+        AWS_Region          ap-northeast-2
+        Retry_Limit         False
+        Suppress_Type_Name  On
+
+    [OUTPUT]
+        Name                es
+        Match               nginx-error-log
+        Logstash_Format     On
+        Logstash_Prefix     ${cluster_name}-nginx-error
+        Logstash_DateFormat %Y.%m
+        Host                ${es_endpoint}
+        Port                443
+        TLS                 On
+        AWS_Auth            On
+        AWS_Region          ap-northeast-2
+        Retry_Limit         False
+        Suppress_Type_Name  On
+
+    [OUTPUT]
+        Name                es
+        Match               user_action
+        Logstash_Format     On
+        Logstash_Prefix     ${cluster_name}-user-action
+        Logstash_DateFormat %Y.%m
+        Host                ${es_endpoint}
+        Port                443
+        TLS                 On
+        AWS_Auth            On
+        AWS_Region          ap-northeast-2
+        Retry_Limit         False
+        Suppress_Type_Name  On
+  
+  customParsers: |
+    [PARSER]
+        Name                user-action-parser
+        Format              json
+        Time_Key            time
+        Time_Format         %Y-%m-%d %H:%M:%S.%L%z
+
+    [MULTILINE_PARSER]
+        name                multiline-app-server
+        type                regex
+        parser              cri
+        key_content         message
+        flush_timeout       1000
+        rule                "start_state"  "/^((\d{4}-\d{2}-\d{2}[T\s])|(\[REST\])|(\[\d{4}-\d{2}-\d{2}\s)|({))/"  "cont"
+        rule                "cont"         "/^(?!(\d{4}-\d{2}-\d{2}[T\s])|(\[REST\])|(\[\d{4}-\d{2}-\d{2}\s)|({))/"  "cont"

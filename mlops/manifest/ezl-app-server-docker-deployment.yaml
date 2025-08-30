@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ezl-app-server-docker
+  namespace: intgapp
+  labels:
+    app.kubernetes.io/instance: ezl-app-server-docker
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ezl-app-server-docker
+    app.kubernetes.io/version: 1.16.0
+    argocd.argoproj.io/instance: ezl-app-server-prod
+    helm.sh/chart: ezl-app-server-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: ezl-app-server-docker
+      app.kubernetes.io/name: ezl-app-server-docker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: ezl-app-server-docker
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: ezl-app-server-docker
+        app.kubernetes.io/version: 1.16.0
+        helm.sh/chart: ezl-app-server-0.1.0
+    spec:
+      containers:
+      - name: ezl-app-server-docker
+        image: ezl-app-server-log-generator:latest  # 빌드된 이미지 사용
+        imagePullPolicy: Never  # 로컬 이미지 사용 (개발용)
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+      restartPolicy: Always
+      # Fluent Bit과 같은 노드에 배포하도록 강제
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                    - fargate

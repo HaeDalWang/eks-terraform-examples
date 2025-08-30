@@ -16,3 +16,5 @@ data "aws_route53_zone" "this" {
 data "aws_eks_cluster_auth" "this" {
   name = module.eks.cluster_name
 }
+
+# 애플리케이션 암호 정보가 저장된 Secret (argocd.tf로 이동됨)

@@ -3,6 +3,12 @@ variable "vpc_cidr" {
   type        = string
 }
 
+variable "github_token" {
+  description = "GitHub Personal Access Token for ArgoCD"
+  type        = string
+  sensitive   = true
+}
+
 variable "eks_cluster_version" {
   description = "EKS 클러스터 버전"
   type        = string
@@ -65,5 +71,40 @@ variable "k8tz_chart_version" {
 
 variable "kong_chart_version" {
   description = "Kong Helm 차트 버전 "
+  type        = string
+}
+
+variable "argocd_slack_app_token" {
+  description = "ArgoCD Slack App Token"
+  type        = string
+}
+
+variable "argocd_notification_slack_channel" {
+  description = "ArgoCD Notification Slack Channel"
+  type        = string
+}
+
+variable "reloader_chart_version" {
+  description = "Reloader Helm 차트 버전"
+  type        = string
+}
+
+variable "secrets_store_csi_driver_provider_aws_chart_version" {
+  description = "Secrets Store CSI Driver Provider AWS Helm 차트 버전"
+  type        = string
+}
+
+variable "secrets_store_csi_driver_chart_version" {
+  description = "Secrets Store CSI Driver Helm 차트 버전"
+  type        = string
+}
+
+variable "argo_rollouts_chart_version" {
+  description = "Argo Rollouts Helm 차트 버전"
+  type        = string
+}
+
+variable "keda_chart_version" {
+  description = "KEDA Helm 차트 버전"
   type        = string
 }

@@ -1,0 +1,52 @@
+# 테스트용 PVC 생성
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-pvc
+  namespace: intgapp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ebs-sc
+  resources:
+    requests:
+      storage: 1Gi
+---
+# 테스트용 Pod (PVC 사용)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvc-test-pod
+  namespace: intgapp
+spec:
+  containers:
+  - name: test-container
+    image: alpine:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      echo "Creating test file..."
+      echo "Test data at $(date)" > /data/test-file.txt
+      echo "DB_PASSWORD_BACKUP=$(date)" > /data/db-backup.txt
+      echo "Files created. Sleeping..."
+      sleep 3600
+    volumeMounts:
+    - name: test-storage
+      mountPath: /data
+  volumes:
+  - name: test-storage
+    persistentVolumeClaim:
+      claimName: test-pvc
+  restartPolicy: Never
+---
+# VolumeSnapshot 생성 예제
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: test-pvc-snapshot
+  namespace: intgapp
+spec:
+  volumeSnapshotClassName: ebs-snapshot-class
+  source:
+    persistentVolumeClaimName: test-pvc

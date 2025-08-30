@@ -7,7 +7,7 @@ data "aws_acm_certificate" "existing" {
 
 # 프로젝트에서만 사용하는 ACM 인증서 발급 요청
 resource "aws_acm_certificate" "project" {
-  domain_name       = "${local.project_domain_name}"
+  domain_name       = local.project_domain_name
   validation_method = "DNS"
   lifecycle {
     create_before_destroy = true

@@ -1,12 +1,9 @@
 controller:
   autoscaling:
     enabled: true
+    minReplicas: 1
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 70
-  resources:
-    requests:
-      cpu: 100m
-      memory: 512Mi
   service:
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-type: external
@@ -16,14 +13,14 @@ controller:
       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${lb_acm_certificate_arn}
       service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+      service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
     targetPorts:
       https: http
   config:
     use-proxy-protocol: "true"
     real-ip-header: "proxy_protocol"
     use-forwarded-headers: "true"
-    whitelist-source-range: ${whitelist_source_range}
-  metrics:
-    enabled: false
-    serviceMonitor:
-      enabled: true
+    annotations-risk-level: "Critical"
+  allowSnippetAnnotations: true
+  publishService:
+    enabled: true

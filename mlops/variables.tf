@@ -108,3 +108,8 @@ variable "keda_chart_version" {
   description = "KEDA Helm 차트 버전"
   type        = string
 }
+
+variable "kubeflow_chart_version" {
+  description = "Kubeflow Helm 차트 버전"
+  type        = string
+}

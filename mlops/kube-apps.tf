@@ -218,3 +218,32 @@ resource "helm_release" "keda" {
     helm_release.karpenter
   ]
 }
+
+# Kubeflow를 설치할 네임스페이스
+resource "kubernetes_namespace" "kubeflow" {
+  metadata {
+    name = "kubeflow"
+  }
+}
+
+# Kubeflow
+resource "helm_release" "kubeflow" {
+  name       = "kubeflow"
+  repository = "https://kubeflow.github.io/kubeflow"
+  chart      = "kubeflow"
+  version    = var.kubeflow_chart_version
+  namespace  = kubernetes_namespace.kubeflow.metadata[0].name
+
+  values = [
+    templatefile("${path.module}/helm-values/kubeflow.yaml", {
+      domain = "kubeflow.${local.domain_name}"
+    })
+  ]
+
+  depends_on = [
+    helm_release.ingress_nginx,
+    helm_release.argocd
+  ]
+
+  timeout = 600 # Kubeflow 설치에는 더 많은 시간이 필요
+}

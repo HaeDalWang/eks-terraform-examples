@@ -2,37 +2,37 @@
 # 참고: https://github.com/kubeflow/kubeflow/tree/master/manifests
 
 # Istio 설정
-istio:
-  enabled: true
-  ingress:
-    enabled: true
-    hosts:
-      - host: ${domain}
-        paths:
-          - path: /
-            pathType: Prefix
+# istio:
+#   enabled: true
+#   ingress:
+#     enabled: true
+#     hosts:
+#       - host: ${domain}
+#         paths:
+#           - path: /
+#             pathType: Prefix
 
-# Dex 설정 (인증)
-dex:
-  enabled: true
-  config:
-    issuer: https://${domain}/dex
-    staticClients:
-      - id: kubeflow-oidc-authservice
-        redirectURIs:
-          - https://${domain}/login/oidc
-        name: kubeflow-oidc-authservice
-        secret: pUBnBOY80SnXgjibTYM9ZWNzY2IreInjSUv1BD6O
+# # Dex 설정 (인증)
+# dex:
+#   enabled: true
+#   config:
+#     issuer: https://${domain}/dex
+#     staticClients:
+#       - id: kubeflow-oidc-authservice
+#         redirectURIs:
+#           - https://${domain}/login/oidc
+#         name: kubeflow-oidc-authservice
+#         secret: pUBnBOY80SnXgjibTYM9ZWNzY2IreInjSUv1BD6O
 
 # OIDC AuthService 설정
-oidc:
-  enabled: true
-  config:
-    issuer: https://${domain}/dex
-    client_id: kubeflow-oidc-authservice
-    client_secret: pUBnBOY80SnXgjibTYM9ZWNzY2IreInjSUv1BD6O
-    redirect_url: https://${domain}/login/oidc
-    scopes: ["openid", "email", "profile", "groups", "offline_access"]
+# oidc:
+#   enabled: true
+#   config:
+#     issuer: https://${domain}/dex
+#     client_id: kubeflow-oidc-authservice
+#     client_secret: pUBnBOY80SnXgjibTYM9ZWNzY2IreInjSUv1BD6O
+#     redirect_url: https://${domain}/login/oidc
+#     scopes: ["openid", "email", "profile", "groups", "offline_access"]
 
 # Kubeflow Dashboard 설정
 dashboard:
@@ -49,24 +49,24 @@ dashboard:
 # Notebook Controller 설정
 notebooks:
   enabled: true
-  config:
-    defaultImage: gcr.io/kubeflow-images-public/tensorflow-2.1.0-notebook-cpu:1.0.0
-    defaultImagePullPolicy: IfNotPresent
-    defaultCpuRequest: 500m
-    defaultMemoryRequest: 512Mi
-    defaultCpuLimit: 2000m
-    defaultMemoryLimit: 2Gi
+  # config:
+  #   defaultImage: gcr.io/kubeflow-images-public/tensorflow-2.1.0-notebook-cpu:1.0.0
+  #   defaultImagePullPolicy: IfNotPresent
+  #   defaultCpuRequest: 500m
+  #   defaultMemoryRequest: 512Mi
+  #   defaultCpuLimit: 2000m
+  #   defaultMemoryLimit: 2Gi
 
 # Jupyter Web App 설정
 jupyter:
   enabled: true
-  config:
-    defaultImage: gcr.io/kubeflow-images-public/tensorflow-2.1.0-notebook-cpu:1.0.0
-    defaultImagePullPolicy: IfNotPresent
-    defaultCpuRequest: 500m
-    defaultMemoryRequest: 512Mi
-    defaultCpuLimit: 2000m
-    defaultMemoryLimit: 2Gi
+  # config:
+  #   defaultImage: gcr.io/kubeflow-images-public/tensorflow-2.1.0-notebook-cpu:1.0.0
+  #   defaultImagePullPolicy: IfNotPresent
+  #   defaultCpuRequest: 500m
+  #   defaultMemoryRequest: 512Mi
+  #   defaultCpuLimit: 2000m
+  #   defaultMemoryLimit: 2Gi
 
 # TensorBoard 설정
 tensorboard:
@@ -77,89 +77,43 @@ mlflow:
   enabled: true
 
 # Katib 설정 (Hyperparameter Tuning)
-katib:
-  enabled: true
-  config:
-    suggestion:
-      algorithms:
-        - name: random
-        - name: tpe
-        - name: grid
-        - name: hyperband
-        - name: bayesianoptimization
+# katib:
+#   enabled: true
+#   config:
+#     suggestion:
+#       algorithms:
+#         - name: random
+#         - name: tpe
+#         - name: grid
+#         - name: hyperband
+#         - name: bayesianoptimization
 
-# KFServing 설정 (Model Serving)
-kfserving:
-  enabled: true
+# # KFServing 설정 (Model Serving)
+# kfserving:
+#   enabled: true
 
-# Tekton 설정 (CI/CD)
-tekton:
-  enabled: true
+# # Tekton 설정 (CI/CD)
+# tekton:
+#   enabled: true
 
-# Argo Workflows 설정
-argo:
-  enabled: true
+# # Argo Workflows 설정
+# argo:
+#   enabled: true
 
-# MinIO 설정 (Object Storage)
-minio:
-  enabled: true
-  config:
-    accessKey: minio
-    secretKey: minio123
-    bucket: kubeflow
+# # MinIO 설정 (Object Storage)
+# minio:
+#   enabled: true
+#   config:
+#     accessKey: minio
+#     secretKey: minio123
+#     bucket: kubeflow
 
-# MySQL 설정 (Metadata)
-mysql:
-  enabled: true
-  config:
-    host: mysql.kubeflow.svc.cluster.local
-    port: 3306
-    database: kubeflow
-    user: kubeflow
-    password: kubeflow
-
-# Ingress 설정
-ingress:
-  enabled: true
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-  hosts:
-    - host: ${domain}
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: kubeflow-tls
-      hosts:
-        - ${domain}
-
-# 리소스 설정
-resources:
-  limits:
-    cpu: 2000m
-    memory: 4Gi
-  requests:
-    cpu: 500m
-    memory: 1Gi
-
-# 스토리지 설정
-storage:
-  type: pvc
-  pvc:
-    accessMode: ReadWriteOnce
-    size: 10Gi
-    storageClass: gp3
-
-# 보안 설정
-security:
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop:
-      - ALL
+# # MySQL 설정 (Metadata)
+# mysql:
+#   enabled: true
+#   config:
+#     host: mysql.kubeflow.svc.cluster.local
+#     port: 3306
+#     database: kubeflow
+#     user: kubeflow
+#     password: kubeflow

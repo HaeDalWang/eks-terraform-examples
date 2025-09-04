@@ -1,0 +1,77 @@
+# streamlit.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strands-app
+  namespace: mcp-application
+  labels:
+    app: strands-app
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::863422182520:role/mcp-eks-role
+spec:
+  replicas: 3  # Increased replicas for high availability
+  selector:
+    matchLabels:
+      app: strands-app
+  template:
+    metadata:
+      labels:
+        app: strands-app
+    spec:
+      serviceAccountName: mcp-eks-sa
+      containers:
+      - name: strands-app
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:app
+        env:
+        - name: ANALYSIS_MCP_URL
+          value: http://mcp-stock-analysis-service.mcp-server.svc.cluster.local/messages/
+        - name: DATA_MCP_URL
+          value: http://mcp-collectdata-service.mcp-server.svc.cluster.local/messages/
+        - name: RAGURL
+          value: http://mcp-rag-service.mcp-server.svc.cluster.local
+        - name: BEDROCK_MODEL_ID
+          value: anthropic.claude-3-sonnet-20240229-v1:0
+        - name: BEDROCK_MODEL_REGION
+          value: ap-northeast-2
+        # - name: KNOWLEDGE_BASE_ID
+        #   value: <YOUR KNOWLEDGE BASE ID>
+        ports:
+        - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+---
+# Service for strands-app
+apiVersion: v1
+kind: Service
+metadata:
+  name: strands-app-service
+  namespace: mcp-application
+spec:
+  type: ClusterIP
+  selector:
+    app: strands-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+

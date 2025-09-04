@@ -1,0 +1,88 @@
+# streamlit.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: mcp-application
+  labels:
+    app: frontend
+spec:
+  replicas: 1  # Increased replicas for high availability
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: public.ecr.aws/q6y1j8i1/prod/mcpworkshop:front
+        env:
+        - name: CHAT_API
+          value: http://strands-app-service.mcp-application.svc.cluster.local/
+        ports:
+        - containerPort: 8501
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        imagePullPolicy: Always
+
+---
+# Service for mcp-client
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-front-service
+  namespace: mcp-application
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8501
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 8501
+      protocol: TCP
+
+---
+# ingress nginx
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: mcp-application
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: frontend.seungdobae.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcp-front-service
+                port:
+                  number: 80

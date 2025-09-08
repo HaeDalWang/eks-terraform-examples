@@ -29,3 +29,8 @@ argocd_slack_app_token            = ""
 argocd_notification_slack_channel = "dev-noti-argocd"
 argo_rollouts_chart_version       = "2.37.0"
 kubeflow_chart_version            = "1.8.0"
+
+# EBS 백업 알림용 슬랙 웹훅 URL
+# 슬랙 앱에서 Incoming Webhooks를 생성하여 URL을 설정하세요
+# 예: https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX
+slack_webhook_url = ""

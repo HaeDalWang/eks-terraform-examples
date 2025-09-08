@@ -113,3 +113,10 @@ variable "kubeflow_chart_version" {
   description = "Kubeflow Helm 차트 버전"
   type        = string
 }
+
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for backup notifications"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

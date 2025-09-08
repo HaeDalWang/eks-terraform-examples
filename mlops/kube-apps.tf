@@ -219,6 +219,34 @@ resource "helm_release" "keda" {
   ]
 }
 
+# k8tz 설치할 네임스페이스
+resource "kubernetes_namespace" "k8tz" {
+  metadata {
+    name = "k8tz"
+  }
+}
+
+# k8tz
+resource "helm_release" "k8tz" {
+  name       = "k8tz"
+  repository = "https://k8tz.github.io/k8tz"
+  chart      = "k8tz"
+  version    = var.k8tz_chart_version
+  namespace  = kubernetes_namespace.k8tz.metadata[0].name
+
+  values = [
+    <<-EOT
+    replicaCount: 2
+    timezone: Asia/Seoul
+    createNamespace: false
+    namespace: null
+    webhook:
+      ignoredNamespaces:
+        - backup
+        - kube-system
+    EOT
+  ]
+}
 # # Kubeflow를 설치할 네임스페이스
 # resource "kubernetes_namespace" "kubeflow" {
 #   metadata {

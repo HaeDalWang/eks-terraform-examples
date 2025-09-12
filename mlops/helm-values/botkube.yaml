@@ -1,0 +1,71 @@
+# BotKube 1.14.0 설정
+settings:
+  clusterName: ${cluster_name}
+  logLevel: debug
+
+# VolumeSnapshot 이벤트 감지를 위한 소스 설정
+sources:
+  k8s-volumesnapshot-events:
+    displayName: "VolumeSnapshot Events"
+    botkube/kubernetes:
+      enabled: true
+      context:
+        rbac:
+          group:
+            type: Static
+            prefix: ""
+            static:
+              values: ["botkube-plugins-default"]
+      config:
+        namespaces:
+          include:
+            - ".*"
+        event:
+          types:
+            - create
+        resources:
+          - type: snapshot.storage.k8s.io/v1/volumesnapshots
+            updateSetting:
+              includeDiff: false
+              fields:
+                - metadata.name
+                - metadata.namespace
+                - spec.source.persistentVolumeClaimName
+                - status.readyToUse
+                - status.creationTime
+
+# Slack 통신 설정
+communications:
+  default-group:
+    slack:
+      enabled: true
+      channels:
+        default:
+          name: ${slack_channel}
+          bindings:
+            sources:
+              - k8s-volumesnapshot-events
+          notification:
+            type: short
+
+# Slack 토큰 설정
+slack:
+  token: ${slack_token}
+
+# 리소스 설정
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# 서비스 계정 설정
+serviceAccount:
+  create: true
+  name: botkube
+
+# RBAC 설정
+rbac:
+  create: true

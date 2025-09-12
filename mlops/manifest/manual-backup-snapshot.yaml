@@ -5,7 +5,7 @@
 apiVersion: snapshot.storage.k8s.io/v1
 kind: VolumeSnapshot
 metadata:
-  name: opensearch-manual-backup-test-4  # 실행시 실제 시간으로 변경
+  name: opensearch-manual-backup-test-5  # 실행시 실제 시간으로 변경
   namespace: opensearch
   labels:
     backup-type: manual

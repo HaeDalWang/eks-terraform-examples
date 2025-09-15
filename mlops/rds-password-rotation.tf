@@ -53,7 +53,9 @@ resource "aws_iam_policy" "rds_password_rotation" {
         Action = [
           "secretsmanager:UpdateSecret",
           "secretsmanager:GetSecretValue",
-          "secretsmanager:DescribeSecret"
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:CreateSecret",
+          "secretsmanager:PutSecretValue"
         ]
         Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:ezl-app-server-secrets-*"
       }
@@ -67,29 +69,19 @@ resource "aws_iam_role_policy_attachment" "rds_password_rotation" {
   policy_arn = aws_iam_policy.rds_password_rotation.arn
 }
 
-# Lambda 함수 소스 코드 (hash 기반)
-data "archive_file" "rds_password_rotation" {
-  type        = "zip"
-  output_path = "/tmp/rds_password_rotation.zip"
-  source_dir  = "${path.module}/lambdas"
-  
-  # 특정 파일만 포함
-  includes = ["rds_password_rotation.py"]
-  
-  # 파일명을 lambda_function.py로 변경
-  output_file_mode = "0644"
-}
+# Lambda 함수 소스 코드 (미리 압축된 파일 사용)
+# 빌드 스크립트: ./lambdas/build.sh
 
 # Lambda 함수
 resource "aws_lambda_function" "rds_password_rotation" {
-  filename         = data.archive_file.rds_password_rotation.output_path
+  filename         = "${path.module}/lambdas/build/rds_password_rotation.zip"
   function_name    = "${local.project}-rds-password-rotation"
   role            = aws_iam_role.rds_password_rotation.arn
-  handler         = "rds_password_rotation.lambda_handler"
+  handler         = "lambda_function.lambda_handler"
   runtime         = "python3.11"
   timeout         = 300
 
-  source_code_hash = data.archive_file.rds_password_rotation.output_base64sha256
+  source_code_hash = filebase64sha256("${path.module}/lambdas/build/rds_password_rotation.zip")
 
   environment {
     variables = {
@@ -103,7 +95,7 @@ resource "aws_lambda_function" "rds_password_rotation" {
   }
 }
 
-# EventBridge Scheduler - 30일마다 실행
+# EventBridge Scheduler
 resource "aws_scheduler_schedule" "rds_password_rotation" {
   name       = "${local.project}-rds-password-rotation"
   group_name = "default"
@@ -112,7 +104,9 @@ resource "aws_scheduler_schedule" "rds_password_rotation" {
     mode = "OFF"
   }
 
-  schedule_expression = "rate(30 days)"
+  # 변경: 매월 1일 새벽 4시 (Asia/Seoul 시간대)
+  schedule_expression = "cron(0 4 1 * ? *)"
+  # schedule_expression = "rate(10 minutes)"
   schedule_expression_timezone = "Asia/Seoul"
 
   target {
@@ -123,10 +117,6 @@ resource "aws_scheduler_schedule" "rds_password_rotation" {
       source = "eventbridge-scheduler"
       action = "rds-password-rotation"
     })
-  }
-
-  tags = {
-    Name = "${local.project}-rds-password-rotation"
   }
 }
 
@@ -180,18 +170,4 @@ resource "aws_lambda_permission" "allow_scheduler" {
   function_name = aws_lambda_function.rds_password_rotation.function_name
   principal     = "scheduler.amazonaws.com"
   source_arn    = aws_scheduler_schedule.rds_password_rotation.arn
-}
-
-# RDS 초기 비밀번호를 Secrets Manager에 저장 (Terraform으로 직접 처리)
-resource "aws_secretsmanager_secret_version" "ezl_app_server_initial" {
-  secret_id = data.aws_secretsmanager_secret.application["ezl-app-server"].id
-  secret_string = jsonencode({
-    DB_PASSWORD = random_password.rds.result
-    DB_PASSWORD_UPDATED_AT = timestamp()
-    DB_PASSWORD_TYPE = "initial"
-  })
-
-  depends_on = [
-    module.rds
-  ]
 }

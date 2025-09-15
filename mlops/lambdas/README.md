@@ -31,9 +31,34 @@ lambdas/
 
 ## 배포 방법
 
-Lambda 함수는 Terraform을 통해 자동으로 배포됩니다:
+### 1. Lambda 패키지 빌드
+먼저 Lambda 패키지를 빌드해야 합니다:
 
 ```bash
+cd lambdas
+
+# 가상환경 활성화 (선택사항)
+python3 -m venv venv
+source venv/bin/activate
+
+# 또는 기존 가상환경 활성화
+# source your_venv/bin/activate
+
+# Lambda 패키지 빌드
+./build.sh
+```
+
+이 스크립트는:
+- Python 파일을 `lambda_function.py`로 복사
+- `requirements.txt`의 의존성을 설치
+- 모든 파일을 ZIP으로 압축
+- `build/rds_password_rotation.zip` 파일 생성
+
+### 2. Terraform 배포
+Lambda 패키지 빌드 후 Terraform으로 배포:
+
+```bash
+cd ..
 terraform apply
 ```
 

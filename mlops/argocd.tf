@@ -81,7 +81,7 @@ resource "kubernetes_manifest" "argocd_app" {
         helm = {
           releaseName = each.key
           valueFiles = [
-            "values_prod.yaml"
+            "values_dev.yaml"
           ]
         }
       }

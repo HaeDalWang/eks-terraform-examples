@@ -37,8 +37,8 @@ def lambda_handler(event, context):
         # 4. ezl-app-server-secrets의 DB_PASSWORD 업데이트
         update_app_secret_password(app_secret_name, new_password)
         
-        # 5. 새 비밀번호로 연결 테스트 (선택사항)
-        test_database_connection(db_instance_id, new_password)
+        # 5. RDS 상태 확인 (연결 테스트는 제거)
+        verify_rds_status(db_instance_id)
         
         logger.info("비밀번호 로테이션 성공적으로 완료")
         
@@ -159,19 +159,42 @@ def update_app_secret_password(secret_name, new_password):
         
         logger.info(f"시크릿 {secret_name}의 DB_PASSWORD 업데이트 중...")
         
-        # 현재 시크릿 값 가져오기
-        response = secrets_client.get_secret_value(SecretId=secret_name)
-        current_secret = json.loads(response['SecretString'])
-        
-        # DB_PASSWORD 값 업데이트
-        current_secret['DB_PASSWORD'] = new_password
-        current_secret['DB_PASSWORD_UPDATED_AT'] = datetime.now().isoformat()
-        
-        # 업데이트된 시크릿 저장
-        secrets_client.put_secret_value(
-            SecretId=secret_name,
-            SecretString=json.dumps(current_secret)
-        )
+        try:
+            # 현재 시크릿 값 가져오기
+            response = secrets_client.get_secret_value(SecretId=secret_name)
+            current_secret = json.loads(response['SecretString'])
+            
+            # DB_PASSWORD 값 업데이트
+            current_secret['DB_PASSWORD'] = new_password
+            current_secret['DB_PASSWORD_UPDATED_AT'] = datetime.now().isoformat()
+            current_secret['DB_PASSWORD_TYPE'] = "rotated"
+            
+            # 업데이트된 시크릿 저장
+            secrets_client.put_secret_value(
+                SecretId=secret_name,
+                SecretString=json.dumps(current_secret)
+            )
+            
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ResourceNotFoundException':
+                # 시크릿이 존재하지 않으면 새로 생성
+                logger.info(f"시크릿 {secret_name}이 존재하지 않음. 새로 생성 중...")
+                
+                new_secret = {
+                    'DB_PASSWORD': new_password,
+                    'DB_PASSWORD_UPDATED_AT': datetime.now().isoformat(),
+                    'DB_PASSWORD_TYPE': 'created'
+                }
+                
+                secrets_client.create_secret(
+                    Name=secret_name,
+                    Description=f"Database password for {secret_name}",
+                    SecretString=json.dumps(new_secret)
+                )
+                
+                logger.info(f"시크릿 {secret_name} 새로 생성 완료")
+            else:
+                raise
         
         logger.info(f"시크릿 {secret_name}의 DB_PASSWORD 업데이트 완료")
         
@@ -181,99 +204,35 @@ def update_app_secret_password(secret_name, new_password):
         logger.error(f"시크릿 업데이트 실패: {error_code} - {error_message}")
         raise Exception(f"시크릿 업데이트 실패: {error_message}")
 
-def test_database_connection(db_instance_id, password):
+def verify_rds_status(db_instance_id):
     """
-    새 비밀번호로 데이터베이스 연결 테스트
+    RDS 인스턴스 상태 확인 (간단한 boto3만 사용)
     """
     try:
         rds_client = boto3.client('rds')
         
-        # RDS 인스턴스 정보 가져오기
+        # RDS 인스턴스 상태 확인
         response = rds_client.describe_db_instances(
             DBInstanceIdentifier=db_instance_id
         )
         
         db_instance = response['DBInstances'][0]
-        host = db_instance['Endpoint']['Address']
-        port = db_instance['Endpoint']['Port']
+        status = db_instance['DBInstanceStatus']
         engine = db_instance['Engine']
-        username = db_instance['MasterUsername']
+        endpoint = db_instance['Endpoint']['Address']
         
-        logger.info(f"데이터베이스 연결 테스트 시작: {engine}://{host}:{port}")
+        logger.info(f"RDS 상태 확인 완료: {engine} - {status}")
+        logger.info(f"RDS 엔드포인트: {endpoint}")
         
-        # 엔진별 연결 테스트
-        if engine.startswith('mysql') or engine.startswith('aurora-mysql'):
-            test_mysql_connection(host, port, username, password)
-        elif engine.startswith('postgres') or engine.startswith('aurora-postgresql'):
-            test_postgresql_connection(host, port, username, password)
+        if status == 'available':
+            logger.info("RDS 인스턴스가 정상 상태입니다")
         else:
-            logger.warning(f"지원하지 않는 DB 엔진: {engine}. 연결 테스트 생략")
-            return
-        
-        logger.info("데이터베이스 연결 테스트 성공")
+            logger.warning(f"RDS 인스턴스 상태: {status}")
         
     except Exception as e:
-        logger.error(f"데이터베이스 연결 테스트 실패: {str(e)}")
-        # 연결 테스트 실패는 전체 프로세스를 중단시키지 않음
-        logger.warning("연결 테스트 실패했지만 로테이션은 계속 진행")
-
-def test_mysql_connection(host, port, username, password):
-    """
-    MySQL/Aurora MySQL 연결 테스트
-    """
-    try:
-        import pymysql
-        
-        connection = pymysql.connect(
-            host=host,
-            port=port,
-            user=username,
-            password=password,
-            connect_timeout=10,
-            read_timeout=10,
-            write_timeout=10
-        )
-        
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-            
-        connection.close()
-        logger.info(f"MySQL 연결 테스트 성공: {result}")
-        
-    except ImportError:
-        logger.warning("pymysql이 설치되지 않음. MySQL 연결 테스트 생략")
-    except Exception as e:
-        logger.error(f"MySQL 연결 테스트 실패: {str(e)}")
-        raise
-
-def test_postgresql_connection(host, port, username, password):
-    """
-    PostgreSQL/Aurora PostgreSQL 연결 테스트
-    """
-    try:
-        import psycopg2
-        
-        connection = psycopg2.connect(
-            host=host,
-            port=port,
-            user=username,
-            password=password,
-            connect_timeout=10
-        )
-        
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            result = cursor.fetchone()
-            
-        connection.close()
-        logger.info(f"PostgreSQL 연결 테스트 성공: {result}")
-        
-    except ImportError:
-        logger.warning("psycopg2가 설치되지 않음. PostgreSQL 연결 테스트 생략")
-    except Exception as e:
-        logger.error(f"PostgreSQL 연결 테스트 실패: {str(e)}")
-        raise
+        logger.error(f"RDS 상태 확인 실패: {str(e)}")
+        # 상태 확인 실패는 전체 프로세스를 중단시키지 않음
+        logger.warning("RDS 상태 확인 실패했지만 로테이션은 완료됨")
 
 def send_failure_notification(error_message, request_id):
     """

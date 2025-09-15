@@ -61,7 +61,7 @@ module "rds" {
 
   # DB subnet group
   create_db_subnet_group = true
-  subnet_ids             = module.vpc.database_subnets
+  subnet_ids             = module.vpc.private_subnets
 
   # DB parameter group
   family = "postgres15"

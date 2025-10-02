@@ -170,6 +170,27 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
           encrypted: true
       metadataOptions:
         httpPutResponseHopLimit: 2
+      userData: |
+        #!/bin/bash
+        
+        # containerd 레지스트리 미러 설정 추가
+        # AL2023는 기본적으로 /etc/containerd/certs.d를 읽도록 설정되어 있음
+        mkdir -p /etc/containerd/certs.d/docker.io
+        
+        cat > /etc/containerd/certs.d/docker.io/hosts.toml <<'EOF'
+        server = "https://docker.io"
+        
+        # Google Container Registry 미러 (우선순위 1)
+        [host."https://mirror.gcr.io"]
+          capabilities = ["pull", "resolve"]
+        
+        # Docker Hub 기본 레지스트리 (폴백)
+        [host."https://registry-1.docker.io"]
+          capabilities = ["pull", "resolve"]
+        EOF
+        
+        # containerd 재시작하여 설정 적용
+        systemctl restart containerd
       tags:
         ${jsonencode(local.tags)}
     YAML

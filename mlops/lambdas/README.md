@@ -36,15 +36,6 @@ lambdas/
 
 ```bash
 cd lambdas
-
-# 가상환경 활성화 (선택사항)
-python3 -m venv venv
-source venv/bin/activate
-
-# 또는 기존 가상환경 활성화
-# source your_venv/bin/activate
-
-# Lambda 패키지 빌드
 ./build.sh
 ```
 

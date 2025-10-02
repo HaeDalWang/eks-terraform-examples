@@ -91,7 +91,7 @@ resource "kubectl_manifest" "pvc_backup_schedule" {
 
 # Slack 알림용 ServiceAccount
 resource "kubernetes_service_account_v1" "slack_notifier" {
-  count = var.argocd_slack_app_token != "" ? 1 : 0
+  count = var.slack_webhook_url != "" ? 1 : 0
   
   metadata {
     name      = "slack-notifier"
@@ -101,7 +101,7 @@ resource "kubernetes_service_account_v1" "slack_notifier" {
 
 # Slack 알림용 ClusterRole
 resource "kubernetes_cluster_role_v1" "slack_notifier" {
-  count = var.argocd_slack_app_token != "" ? 1 : 0
+  count = var.slack_webhook_url != "" ? 1 : 0
   
   metadata {
     name = "slack-notifier"
@@ -123,7 +123,7 @@ resource "kubernetes_cluster_role_v1" "slack_notifier" {
 
 # Slack 알림용 ClusterRoleBinding
 resource "kubernetes_cluster_role_binding_v1" "slack_notifier" {
-  count = var.argocd_slack_app_token != "" ? 1 : 0
+  count = var.slack_webhook_url != "" ? 1 : 0
   
   metadata {
     name = "slack-notifier"
@@ -144,7 +144,7 @@ resource "kubernetes_cluster_role_binding_v1" "slack_notifier" {
 
 # 간편한 Slack 알림 - VolumeSnapshot 생성 감지
 resource "kubernetes_deployment_v1" "slack_notifier" {
-  count = var.argocd_slack_app_token != "" ? 1 : 0
+  count = var.slack_webhook_url != "" ? 1 : 0
   
   metadata {
     name      = "slack-backup-notifier"
@@ -181,9 +181,8 @@ resource "kubernetes_deployment_v1" "slack_notifier" {
           args = [
             "-c",
             <<-EOT
-            echo "🔔 Slack 알림 서비스 시작 - 디버깅 모드"
-            echo "SLACK_BOT_TOKEN: $${SLACK_BOT_TOKEN:0:20}..."
-            echo "SLACK_CHANNEL: $SLACK_CHANNEL"
+            echo "🔔 Slack Webhook 알림 서비스 시작 - 디버깅 모드"
+            echo "SLACK_WEBHOOK_URL: $${SLACK_WEBHOOK_URL:0:30}..."
             
             # 5분마다 새로운 스냅샷들을 한번에 알림하는 방식
             echo "🔍 VolumeSnapshot 폴링 시작 (5분 간격)..."
@@ -221,24 +220,24 @@ resource "kubernetes_deployment_v1" "slack_notifier" {
                 KST_TIME=$((CURRENT_TIME + 32400))
                 CURRENT_KST=$(date -u -d "@$KST_TIME" '+%Y-%m-%d %H:%M:%S KST' 2>/dev/null || date -u '+%Y-%m-%d %H:%M:%S KST')
 
-                # Slack 메시지 전송 (간단한 형식)
+                # Slack Webhook 메시지 전송 (간단한 형식)
                 MESSAGE="✅ EKS PVC 백업 완료 ($${SNAPSHOT_COUNT}개)\\n스냅샷: $SNAPSHOT_NAMES\\n시간: $CURRENT_KST"
                 
                 echo "📤 전송할 메시지: $MESSAGE"
                 
-                RESPONSE=$(curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-                  -H "Content-type: application/json" \
-                  --data "{\"channel\":\"$SLACK_CHANNEL\",\"text\":\"$MESSAGE\"}" \
-                  "https://slack.com/api/chat.postMessage")
+                RESPONSE=$(curl -s -X POST -H "Content-type: application/json" \
+                  --data "{\"text\":\"$MESSAGE\"}" \
+                  "$SLACK_WEBHOOK_URL")
                 
-                echo "📤 Slack 응답: $RESPONSE"
+                echo "📤 Slack Webhook 응답: $RESPONSE"
                 
-                if echo "$RESPONSE" | grep -q '"ok":true'; then
-                  echo "✅ Slack 알림 전송 성공: $${SNAPSHOT_COUNT}개 스냅샷"
+                # Webhook 성공 응답은 "ok" 문자열
+                if echo "$RESPONSE" | grep -q "ok"; then
+                  echo "✅ Slack Webhook 알림 전송 성공: $${SNAPSHOT_COUNT}개 스냅샷"
                   # 마지막 알림 시간 업데이트
                   echo "$CURRENT_TIME" > "$LAST_NOTIFICATION_FILE"
                 else
-                  echo "❌ Slack 알림 전송 실패: $RESPONSE"
+                  echo "❌ Slack Webhook 알림 전송 실패: $RESPONSE"
                 fi
               else
                 echo "⏳ 새 스냅샷 없음"
@@ -251,12 +250,8 @@ resource "kubernetes_deployment_v1" "slack_notifier" {
           ]
           
           env {
-            name  = "SLACK_BOT_TOKEN"
-            value = var.argocd_slack_app_token
-          }
-          env {
-            name  = "SLACK_CHANNEL"
-            value = "#${var.argocd_notification_slack_channel}"
+            name  = "SLACK_WEBHOOK_URL"
+            value = var.slack_webhook_url
           }
           
           resources {

@@ -1,2 +1,0 @@
-# Lambda에 기본 제공되는 boto3, botocore는 requirements.txt에 포함하지 않음
-# psycopg2, pymysql은 실제 DB 연결 테스트에서만 사용되므로 제거

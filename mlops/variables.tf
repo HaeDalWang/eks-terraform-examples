@@ -120,3 +120,8 @@ variable "slack_webhook_url" {
   default     = ""
   sensitive   = true
 }
+
+variable "harbor_chart_version" {
+  description = "Harbor Helm 차트 버전"
+  type        = string
+}

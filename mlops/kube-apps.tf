@@ -273,3 +273,15 @@ resource "helm_release" "k8tz" {
 #     helm_release.argocd
 #   ]
 # }
+
+# resource "helm_release" "harbor" {
+#   name       = "harbor"
+#   repository = "https://helm.goharbor.io"
+#   chart      = "harbor"
+#   version    = var.harbor_chart_version
+#   namespace  = "harbor"
+
+#   values = [
+#     templatefile("${path.module}/helm-values/harbor.yaml", {})
+#   ]
+# }

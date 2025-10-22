@@ -1,18 +1,22 @@
 # EKS 클러스터
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.37.1"
+  # version = "19.15"
+  version = "21.3.1"
 
-  cluster_name    = local.project
-  cluster_version = var.eks_cluster_version
+  authentication_mode = "API_AND_CONFIG_MAP"
+
+  name    = local.project
+  # cluster_version = var.eks_cluster_version
+  kubernetes_version = var.eks_cluster_version
 
   vpc_id = module.vpc.vpc_id
   # 노드그룹을 사용할 경우 노드가 생성되는 서브넷
   subnet_ids = module.vpc.private_subnets
   # 컨트롤 플레인으로 연결된 ENI를 생성할 서브넷
   control_plane_subnet_ids        = module.vpc.intra_subnets
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
+  endpoint_public_access  = true
+  endpoint_private_access = false
 
   # 클러스터를 생성한 IAM 객체에서 쿠버네티스 어드민 권한 할당
   enable_cluster_creator_admin_permissions = true
@@ -43,8 +47,7 @@ module "eks" {
   }
 
   # 로깅 비활성화 - 변수처리
-  cluster_enabled_log_types = []
-  depends_on = [ module.vpc ]
+  enabled_log_types = []
 }
 
 # EKS 클러스터 버전에 맞는 CoreDNS 애드온 버전 불러오기
@@ -69,27 +72,53 @@ resource "aws_eks_addon" "coredns" {
     module.eks.fargate_profiles
   ]
 }
+# EKS Access Entries를 사용한 액세스 관리 (권장 방식)
+# aws-auth ConfigMap 대신 AWS의 새로운 액세스 관리 방식 사용
+resource "aws_eks_access_entry" "karpenter_node_role" {
+  cluster_name      = module.eks.cluster_name
+  principal_arn     = module.karpenter.node_iam_role_arn
+  type              = "EC2_LINUX"
+  kubernetes_groups = ["system:bootstrappers", "system:nodes"]
 
+  depends_on = [
+    module.eks,
+    module.karpenter
+  ]
+}
+
+# Karpenter 노드 역할에 필요한 권한 부여
+resource "aws_eks_access_policy_association" "karpenter_node_role" {
+  cluster_name  = module.eks.cluster_name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSNodeRolePolicy"
+  principal_arn = module.karpenter.node_iam_role_arn
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [
+    aws_eks_access_entry.karpenter_node_role
+  ]
+}
 # Karpenter 구성에 필요한 AWS 리소스 생성
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "20.37.1"
+  version = "21.3.1"
 
   cluster_name                  = module.eks.cluster_name
   node_iam_role_name            = "${module.eks.cluster_name}-node-role"
   node_iam_role_use_name_prefix = false
 
   # Karpenter 1.0 이상 버전에 필요한 policy를 사용하도록 설정 (공식문서 input에 없음 주의)
-  enable_v1_permissions = true
+  # enable_v1_permissions = true
   # Karpenter에 부여할 IAM 역할 생성
-  enable_irsa            = true
-  irsa_oidc_provider_arn = module.eks.oidc_provider_arn
+  # enable_irsa            = true
+  # irsa_oidc_provider_arn = module.eks.oidc_provider_arn
 
   # Karpenter가 생성할 노드에 부여할 역할에 기본 정책 이외에 추가할 IAM 정책
   node_iam_role_additional_policies = {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
     AmazonEBSCSIDriverPolicy     = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-    ExternalDNSPolicy            = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
   }
 }
 
@@ -140,11 +169,6 @@ resource "helm_release" "karpenter" {
           memory: 256Mi
     EOT
   ]
-
-  depends_on = [
-    helm_release.karpenter-crd,
-    module.eks.fargate_profiles
-  ]
 }
 
 # Karpenter 기본 노드 클래스
@@ -159,8 +183,8 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       - alias: "${var.eks_node_ami_alias_al2023}"
       role: ${module.karpenter.node_iam_role_name}
       subnetSelectorTerms:
-      - tags:
-          karpenter.sh/discovery: ${module.eks.cluster_name}
+      - id: ${module.vpc.private_subnets[0]}
+      - id: ${module.vpc.private_subnets[1]}
       securityGroupSelectorTerms:
       - id: ${module.eks.cluster_primary_security_group_id}
       blockDeviceMappings:
@@ -171,27 +195,6 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
           encrypted: true
       metadataOptions:
         httpPutResponseHopLimit: 2
-      userData: |
-        #!/bin/bash
-        
-        # containerd 레지스트리 미러 설정 추가
-        # AL2023는 기본적으로 /etc/containerd/certs.d를 읽도록 설정되어 있음
-        mkdir -p /etc/containerd/certs.d/docker.io
-        
-        cat > /etc/containerd/certs.d/docker.io/hosts.toml <<'EOF'
-        server = "https://docker.io"
-        
-        # Google Container Registry 미러 (우선순위 1)
-        [host."https://mirror.gcr.io"]
-          capabilities = ["pull", "resolve"]
-        
-        # Docker Hub 기본 레지스트리 (폴백)
-        [host."https://registry-1.docker.io"]
-          capabilities = ["pull", "resolve"]
-        EOF
-        
-        # containerd 재시작하여 설정 적용
-        systemctl restart containerd
       tags:
         ${jsonencode(local.tags)}
     YAML
@@ -247,10 +250,10 @@ locals {
   eks_addons = [
     "kube-proxy",
     "vpc-cni",
-    "metrics-server",
-    "aws-ebs-csi-driver",
-    "eks-pod-identity-agent",
-    "snapshot-controller"
+    # "metrics-server",
+    # "aws-ebs-csi-driver",
+    # "eks-pod-identity-agent",
+    # "external-dns"
   ]
 }
 
@@ -279,107 +282,41 @@ resource "aws_eks_addon" "this" {
   }
 }
 
-# EBS CSI 드라이버를 사용하는 스토리지 클래스
-resource "kubernetes_storage_class" "ebs_sc" {
-  # EBS CSI 드라이버가 EKS Addon을 통해서 생성될 경우
-  # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
+# # EBS CSI 드라이버를 사용하는 스토리지 클래스
+# resource "kubernetes_storage_class" "ebs_sc" {
+#   # EBS CSI 드라이버가 EKS Addon을 통해서 생성될 경우
+#   # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
 
-  metadata {
-    name = "ebs-sc"
-    annotations = {
-      "storageclass.kubernetes.io/is-default-class" : "true"
-    }
-  }
-  storage_provisioner = "ebs.csi.aws.com"
-  volume_binding_mode = "WaitForFirstConsumer"
-  parameters = {
-    type      = "gp3"
-    encrypted = "true"
-  }
-}
+#   metadata {
+#     name = "ebs-sc"
+#     annotations = {
+#       "storageclass.kubernetes.io/is-default-class" : "true"
+#     }
+#   }
+#   storage_provisioner = "ebs.csi.aws.com"
+#   volume_binding_mode = "WaitForFirstConsumer"
+#   parameters = {
+#     type      = "gp3"
+#     encrypted = "true"
+#   }
+# }
 
-# 기본값으로 생성된 스토리지 클래스 해제
-resource "kubernetes_annotations" "default_storageclass" {
-  # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
+# # 기본값으로 생성된 스토리지 클래스 해제
+# resource "kubernetes_annotations" "default_storageclass" {
+#   # count = lookup(module.eks.cluster_addons, "aws-ebs-csi-driver", null) != null ? 1 : 0
 
-  api_version = "storage.k8s.io/v1"
-  kind        = "StorageClass"
-  force       = "true"
+#   api_version = "storage.k8s.io/v1"
+#   kind        = "StorageClass"
+#   force       = "true"
 
-  metadata {
-    name = "gp2"
-  }
-  annotations = {
-    "storageclass.kubernetes.io/is-default-class" = "false"
-  }
+#   metadata {
+#     name = "gp2"
+#   }
+#   annotations = {
+#     "storageclass.kubernetes.io/is-default-class" = "false"
+#   }
 
-  depends_on = [
-    kubernetes_storage_class.ebs_sc
-  ]
-}
-
-# AWS Load Balancer Controller에 부여할 IAM 역할 및 Pod Identity Association
-module "aws_load_balancer_controller_pod_identity" {
-  source  = "terraform-aws-modules/eks-pod-identity/aws"
-  version = "1.12.0"
-
-  name = "aws-load-balancer-controller"
-
-  attach_aws_lb_controller_policy = true
-
-  associations = {
-    (module.eks.cluster_name) = {
-      cluster_name    = module.eks.cluster_name
-      namespace       = "kube-system"
-      service_account = "aws-load-balancer-controller"
-      tags = {
-        app = "aws-load-balancer-controller"
-      }
-    }
-  }
-}
-
-# AWS Load Balancer Controller
-resource "helm_release" "aws_load_balancer_controller" {
-  name       = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  version    = var.aws_load_balancer_controller_chart_version
-  namespace  = "kube-system"
-
-  values = [
-    <<-EOT
-    clusterName: ${module.eks.cluster_name}
-    serviceAccount:
-      create: true
-      annotations:
-        eks.amazonaws.com/role-arn: ${module.aws_load_balancer_controller_pod_identity.iam_role_arn}
-    EOT
-  ]
-
-  depends_on = [
-    kubectl_manifest.karpenter_default_nodepool
-  ]
-}
-
-resource "helm_release" "external_dns" {
-  name       = "external-dns"
-  repository = "https://kubernetes-sigs.github.io/external-dns"
-  chart      = "external-dns"
-  version    = "1.14.5"
-  namespace  = "kube-system"
-
-  values = [
-    <<-EOT
-    txtOwnerId: ${module.eks.cluster_name}
-    policy: sync
-    domainFilters:
-      - seungdobae.com
-    sources:
-      - service
-      - ingress
-    extraArgs:
-      - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
-    EOT
-  ]
-}
+#   depends_on = [
+#     kubernetes_storage_class.ebs_sc
+#   ]
+# }

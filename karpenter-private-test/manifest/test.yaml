@@ -1,0 +1,17 @@
+# Karpenter에 부여할 보안그룹 설정
+
+apiVersion: vpcresources.k8s.aws/v1beta1
+kind: SecurityGroupPolicy
+metadata:
+  name: karpenter-security-group-policy
+  namespace: karpenter
+spec:
+  podSelector:
+    matchLabels:
+       app.kubernetes.io/name: karpenter
+  securityGroups:
+    groupIds:
+      - sg-05e6083c647130a4f
+      - sg-0f744af4730bea30d
+      # - ${module.vpc.default_security_group_id}
+      # - ${module.eks.cluster_security_group_id}

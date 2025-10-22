@@ -1,0 +1,61 @@
+# 인증서 설정
+identityTrustAnchorsPEM: |
+  ${identityTrustAnchorsPEM}
+
+identity:
+  issuer:
+    tls:
+      crtPEM: |
+        ${identityIssuerCrtPEM}
+      keyPEM: |
+        ${identityIssuerKeyPEM}
+  # replicas: 2
+  # resources:
+  #   cpu:
+  #     request: 100m
+  #     limit: 100m
+  #   memory:
+  #     request: 50Mi
+  #     limit: 50Mi
+
+
+# High Availability 모드 활성화
+# enablePodDisruptionBudget: true
+# enablePodAntiAffinity: true
+
+# 리소스 설정
+# controllerResources:
+#   cpu:
+#     request: 100m
+#     limit: 100m
+#   memory:
+#     request: 50Mi
+#     limit: 50Mi
+
+# Destination 설정
+# destination:
+#   replicas: 2
+#   resources:
+#     cpu:
+#       request: 100m
+#       limit: 100m
+#     memory:
+#       request: 50Mi
+#       limit: 50Mi
+
+# Proxy 설정
+# proxy:
+#   resources:
+#     cpu:
+#       request: 100m
+#       limit: 100m
+#     memory:
+#       request: 50Mi
+#       limit: 50Mi
+
+# CNI 플러그인 비활성화 (기본값)
+cniEnabled: false
+
+# 메트릭 설정
+# telemetry:
+#   enabled: true

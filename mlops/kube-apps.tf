@@ -244,9 +244,71 @@ resource "helm_release" "k8tz" {
       ignoredNamespaces:
         - backup
         - kube-system
+        - linkerd
     EOT
   ]
 }
+
+# Linkerd 네임스페이스 생성
+resource "kubernetes_namespace" "linkerd" {
+  metadata {
+    name = "linkerd"
+    labels = {
+      "linkerd.io/is-control-plane" = "true"
+    }
+  }
+}
+
+# Linkerd CRDs 설치
+resource "helm_release" "linkerd_crds" {
+  name       = "linkerd-crds"
+  repository = "https://helm.linkerd.io/edge"
+  chart      = "linkerd-crds"
+  version    = var.linkerd_chart_version
+  namespace  = kubernetes_namespace.linkerd.metadata[0].name
+
+  depends_on = [
+    kubernetes_namespace.linkerd
+  ]
+}
+
+# Linkerd Control Plane 설치 (AWS Secrets Manager 인증서 사용)
+# resource "helm_release" "linkerd_control_plane" {
+#   name       = "linkerd-control-plane"
+#   repository = "https://helm.linkerd.io/edge"
+#   chart      = "linkerd-control-plane"
+#   version    = var.linkerd_chart_version
+#   namespace  = kubernetes_namespace.linkerd.metadata[0].name
+  
+#   # values 파일도 함께 사용 (Secrets Manager에서 읽은 인증서 사용)
+#   values = [
+#     templatefile("${path.module}/helm-values/linkerd.yaml", {
+#       identityTrustAnchorsPEM = indent(2, local.trust_anchor_crt)
+#       identityIssuerCrtPEM    = indent(8, local.issuer_crt)
+#       identityIssuerKeyPEM    = indent(8, local.issuer_key)
+#     })
+#   ]
+
+#   depends_on = [
+#     helm_release.linkerd_crds,
+#     data.aws_secretsmanager_secret_version.linkerd_certificates
+#   ]
+# }
+
+# # Linkerd Viz (대시보드 및 메트릭) 설치
+# resource "helm_release" "linkerd_viz" {
+#   name       = "linkerd-viz"
+#   repository = "https://helm.linkerd.io/edge"
+#   chart      = "linkerd-viz"
+#   version    = var.linkerd_chart_version
+#   namespace  = kubernetes_namespace.linkerd.metadata[0].name
+
+#   depends_on = [
+#     helm_release.linkerd_control_plane
+#   ]
+# }
+
+
 # # Kubeflow를 설치할 네임스페이스
 # resource "kubernetes_namespace" "kubeflow" {
 #   metadata {

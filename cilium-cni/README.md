@@ -40,3 +40,13 @@ eks.tf을 보면서 이해하기 순서대로 작성되어 잇음
 **3. 실리움 에이전트 (Cilium Agent)**
 - **역할**: 각 노드의 네트워크 인터페이스 제어, eBPF 프로그램 로드 (필수 컴포넌트).
 - **Toleration/Label**: **가장 중요.** 네트워크가 없으면 노드가 동작하지 않으므로, 모든 노드(Tainted 포함)에 실행되도록 `operator: Exists`로 **모든 Toleration을 허용**해야 합니다.
+
+### Karpenter랑 사용 시 주의
+카펜터는 cilium cni 정상조건따위 모름 그러므로 노드풀 작성 시 무조건 테인트를 추가해야함
+Cilium이 준비될 때까지 기다릴 수 있도록 테인트를 명시
+```
+taints:
+- key: "node.cilium.io/agent-not-ready"
+value: "true"
+effect: "NoExecute"
+```

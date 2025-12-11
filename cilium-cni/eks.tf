@@ -305,6 +305,9 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
           - key: kubernetes.io/os
             operator: In
             values: ["linux"]
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values: ["ap-northeast-2a", "ap-northeast-2b", "ap-northeast-2c", "ap-northeast-2d"]
           - key: karpenter.sh/capacity-type
             operator: In
             values: ["spot", "on-demand"]
@@ -319,11 +322,15 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
             kind: EC2NodeClass
             name: "default"
             group: karpenter.k8s.aws
+          taints:
+          - key: "node.cilium.io/agent-not-ready"
+            value: "true"
+            effect: "NoExecute"
       limits:
-        cpu: 100
+        cpu: 10
       disruption:
         consolidationPolicy: WhenEmptyOrUnderutilized 
-        consolidateAfter: 300s
+        consolidateAfter: 30s
     YAML
 
   depends_on = [

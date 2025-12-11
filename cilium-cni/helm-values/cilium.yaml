@@ -7,6 +7,11 @@ cluster:
   id: 1                   # [권장] 1~255. ClusterMesh 계획이 있으면 각 클러스터마다 유니크하게 설정.
                           # 단일 클러스터, mesh 안 쓴다면 0(default) 그대로 둬도 동작은 함.
 
+# Cilium이 준비될 때까지 다른 파드가 스케줄/실행되지 않도록 taint 설정
+# 권장값: NoExecute (재부팅 시 CNI 미적용 파드 방지)
+agentNotReadyTaintKey: node.cilium.io/agent-not-ready
+agentNotReadyTaintEffect: NoExecute
+
 # --- (EKS ENI 모드에 필수) ENI + IPAM 설정 -------------------------
 eni:
   enabled: true           # [필수/EKS ENI] Cilium이 AWS ENI를 직접 관리하도록 활성화.

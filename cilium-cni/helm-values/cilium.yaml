@@ -1,0 +1,54 @@
+# Cilium Helm chart 1.18.4 + EKS ENI 모드용 최소 values 예시
+# 나머지 값들은 chart 기본값 그대로 사용 (overlay 모드 관련 값 등)
+
+# --- (선택이지만 강력 추천) 클러스터 식별자 -------------------------
+cluster:
+  name: "eks-dev"        # [권장] 여러 클러스터/mesh 쓸 때 구분용 이름. observability, mesh 구성 시 유용.
+  id: 1                   # [권장] 1~255. ClusterMesh 계획이 있으면 각 클러스터마다 유니크하게 설정.
+                          # 단일 클러스터, mesh 안 쓴다면 0(default) 그대로 둬도 동작은 함.
+
+# --- (EKS ENI 모드에 필수) ENI + IPAM 설정 -------------------------
+eni:
+  enabled: true           # [필수/EKS ENI] Cilium이 AWS ENI를 직접 관리하도록 활성화.
+                          # aws-node 대신 Pod마다 ENI IP를 할당하는 ENI datapath 전제 조건.
+ipam:
+  mode: eni               # [필수/EKS ENI] IPAM 모드를 eni로 변경.
+                          # 각 Pod에 VPC ENI IP를 직접 할당하여 VPC 내부에서 바로 라우팅 가능하게 함.
+routingMode: native       # [필수/EKS ENI] native routing 모드.
+                          # Pod IP가 VPC 레벨에서 그대로 라우팅되도록 설정 (VPC CNI와 유사한 동작).
+autoCreateCiliumNodeResource: true  # [권장] ENI 모드에서 CiliumNode CRD를 자동 생성.
+                                    #   Karpenter + ENI 조합에서 노드 발견/관리 편해짐.
+egressMasqueradeInterfaces: "eth+ ens+"  # [권장] ENI가 붙는 NIC prefix 지정 (예: eth0/ens5 등).
+                                         #   Pod → VPC 외부로 나가는 egress SNAT 인터페이스 선택.
+                                         #   EKS 노드 NIC가 전부 eth*면 "eth+" 만 둬도 됨.   
+                                        
+# --- kube-proxy replacement 모드시 필수 설정 -------------------------
+kubeProxyReplacement: "true"            # kube-proxy-free 모드 켜기
+k8sServiceHost: "${k8sServiceHost}"     # cluster 에 나오는 endpoint
+k8sServicePort: "443"                   # EKS API는 기본 443
+
+# --- (선택) system 전용 노드에만 Cilium 스케줄링 (네가 원하면 추가) ----
+# 없으면 오퍼레이터가 안뜸 > crd가 없음 > 노드가 Ready 안됨
+
+# envoy와 cilium agent는 어디든지 배포되도록 명시 
+# 기본값이 Exists이지만 명시적으로 선언
+tolerations:
+  - operator: Exists
+envoy:
+  tolerations:
+    - operator: Exists
+
+# 오퍼레이터는 system node에만 배포되도록 명시
+operator:
+  nodeSelector:
+    workload: system
+    nodegroup: system
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: system
+      effect: NoSchedule
+
+# --- (선택) Hubble / 기타는 기본값 유지 -----------------------------
+# hubble:
+#   enabled: false        # [선택] 처음에는 꺼두고, 나중에 관찰성 필요할 때 별도 values로 켜는 걸 추천.

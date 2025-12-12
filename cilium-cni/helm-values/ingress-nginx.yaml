@@ -1,0 +1,35 @@
+controller:
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 70
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: external
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+      service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${lb_acm_certificate_arn}
+      service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+      service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+    targetPorts:
+      https: http
+  config:
+    # NLB에서 Proxy Protocol(v2) 사용 시 반드시 활성화
+    use-proxy-protocol: "true"
+    real-ip-header: "proxy_protocol"
+    use-forwarded-headers: "true"
+    # SnippetAnnotation등을 사용하기 위해서는 이제 위험 레벨을 Critical로 설정해야 합니다
+    annotations-risk-level: "Critical"
+  allowSnippetAnnotations: true
+  # ingeress state의 ADDRESS 값이 Node IP가 아닌 ELB의 주소가 찍히도록합니다
+  # 만약 false인 경우 External-dns와 같은 외부 서비스가 원하는대로 레코드를 등록하지 못합니다
+  publishService:
+    enabled: true

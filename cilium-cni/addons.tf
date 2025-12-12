@@ -171,12 +171,9 @@ resource "helm_release" "external_dns" {
         eks.amazonaws.com/role-arn: ${module.external_dns_pod_identity.iam_role_arn}
     txtOwnerId: ${module.eks.cluster_name}
     policy: sync
-    domainFilters:
-      - ${var.domain_name}
     sources:
       - service
       - ingress
-      - traefik-proxy
     extraArgs:
       - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
     env:

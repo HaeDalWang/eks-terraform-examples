@@ -69,7 +69,8 @@ resource "helm_release" "cilium" {
 
   values = [
     templatefile("${path.module}/helm-values/cilium.yaml", {
-      k8sServiceHost = replace(module.eks.cluster_endpoint, "https://", "")
+      k8sServiceHost         = replace(module.eks.cluster_endpoint, "https://", "")
+      lb_acm_certificate_arn = aws_acm_certificate.project.arn
     })
   ]
 
@@ -97,19 +98,21 @@ module "eks_managed_node_group" {
   cluster_primary_security_group_id = module.eks.cluster_primary_security_group_id
   vpc_security_group_ids            = [module.eks.node_security_group_id]
 
-  ami_type       = "AL2023_x86_64_STANDARD"
-  capacity_type  = "ON_DEMAND"
-  instance_types = ["t3a.small"]
-  desired_size   = 2
-  min_size       = 2
-  max_size       = 2
+  # 켜두면 맨날 최신버전이라 업그레이드를 너무 자주해야함
+  use_latest_ami_release_version = false
+  ami_type                       = "AL2023_x86_64_STANDARD"
+  capacity_type                  = "ON_DEMAND"
+  instance_types                 = ["t3a.small"]
+  desired_size                   = 2
+  min_size                       = 2
+  max_size                       = 2
 
   # --- IAM Role 생성 + 기본 EKS 노드 정책 부착 ---
-  create_iam_role = true
+  create_iam_role            = true
   iam_role_attach_cni_policy = true
-  iam_role_additional_policies = {
-    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-  }
+  # iam_role_additional_policies = {
+  #   AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  # }
 
   # 시스템 워크로드만 스케줄되도록 테인트
   labels = {
@@ -126,9 +129,9 @@ module "eks_managed_node_group" {
 
   tags = local.tags
 
-  depends_on = [
-    helm_release.cilium
-  ]
+  # depends_on = [
+  #   helm_release.cilium
+  # ]
 }
 
 # Karpenter를 배포할 네임 스페이스
@@ -316,7 +319,7 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
             values: ["t3", "t3a", "t4g", "c5", "c5a", "c6g", "c6i", "c7g", "c7i", "m5", "m5a", "m6g", "m7g"]
           - key: karpenter.k8s.aws/instance-size
             operator: In
-            values: ["medium", "large"]
+            values: ["large","xlarge"]
           nodeClassRef:
             apiVersion: karpenter.k8s.aws/v1
             kind: EC2NodeClass

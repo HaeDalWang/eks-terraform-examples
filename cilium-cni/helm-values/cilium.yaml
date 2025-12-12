@@ -54,6 +54,36 @@ operator:
       value: system
       effect: NoSchedule
 
-# --- (선택) Hubble / 기타는 기본값 유지 -----------------------------
-# hubble:
-#   enabled: false        # [선택] 처음에는 꺼두고, 나중에 관찰성 필요할 때 별도 values로 켜는 걸 추천.
+# --- (선택) Hubble / 모니터링 및 메쉬 -----------------------------
+hubble:
+  enabled: true
+  # ui:
+  #   enabled: true          # 웹 UI까지 보고 싶을 때
+  relay:
+    enabled: true          # 여러 노드의 에이전트 정보를 모아서 제공
+  metrics:
+    enabled:
+      - "dns:query"
+      - "drop"
+      - "tcp"
+      - "http"
+
+# --- (선택) Cilium Ingress Controller 활성화 -----------------
+# ingressController:
+#   enabled: true                # [필수] Cilium Ingress 컨트롤러 ON
+#   default: true
+#   loadbalancerMode: shared   # 모든 Ingress는 해당 LB를 사용
+#   service:
+#     type: LoadBalancer         # EKS에서 외부로 노출
+#     selector:
+#       k8s-app: cilium-ingress  # Envoy 데몬셋 라벨과 명시적으로 매칭
+#     annotations:
+#       service.beta.kubernetes.io/aws-load-balancer-type: external
+#       service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+#       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+#       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+#       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${lb_acm_certificate_arn}
+#       service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
+#       service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+ 

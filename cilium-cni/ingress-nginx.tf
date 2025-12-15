@@ -18,6 +18,7 @@ resource "helm_release" "ingress_nginx" {
         aws_acm_certificate_validation.project.certificate_arn,
         data.aws_acm_certificate.existing.arn
       ])
+      vpc_cidr = module.vpc.vpc_cidr_block
     })
   ]
 

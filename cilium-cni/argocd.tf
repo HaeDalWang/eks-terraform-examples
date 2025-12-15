@@ -1,165 +1,155 @@
-# # GitHub 리포지토리 인증 정보
-# resource "kubernetes_secret_v1" "github_token" {
-#   metadata {
-#     name      = "github"
-#     namespace = kubernetes_namespace.argocd.metadata[0].name
-#     labels = {
-#       "argocd.argoproj.io/secret-type" = "repo-creds"
-#     }
-#   }
+# GitHub 리포지토리 인증 정보
+resource "kubernetes_secret_v1" "github_token" {
+  metadata {
+    name      = "github"
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+    labels = {
+      "argocd.argoproj.io/secret-type" = "repo-creds"
+    }
+  }
 
-#   data = {
-#     type     = "git"
-#     url      = "https://github.com/co-tong"
-#     username = "HaeDalWang"
-#     password = jsondecode(data.aws_secretsmanager_secret_version.auth.secret_string)["github"]["token"]
-#   }
-# }
+  data = {
+    type     = "git"
+    url      = "https://github.com/haedalwang"
+    username = "HaeDalWang"
+    password = jsondecode(data.aws_secretsmanager_secret_version.auth.secret_string)["github"]["token"]
+  }
+}
 
-# # Argo CD에 프로젝트 생성
-# resource "kubernetes_manifest" "argocd_project" {
-#   manifest = {
-#     apiVersion = "argoproj.io/v1alpha1"
-#     kind       = "AppProject"
+# Argo CD에 프로젝트 생성
+resource "kubernetes_manifest" "argocd_project" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "AppProject"
 
-#     metadata = {
-#       name      = local.project
-#       namespace = kubernetes_namespace.argocd.metadata[0].name
-#       # 해당 프로젝트에 속한 애플리케이션이 존재할 경우 삭제 방지
-#       finalizers = [
-#         "resources-finalizer.argocd.argoproj.io"
-#       ]
-#     }
+    metadata = {
+      name      = local.project
+      namespace = kubernetes_namespace.argocd.metadata[0].name
+      # 해당 프로젝트에 속한 애플리케이션이 존재할 경우 삭제 방지
+      finalizers = [
+        "resources-finalizer.argocd.argoproj.io"
+      ]
+    }
 
-#     spec = {
-#       description = "Cotong 환경"
-#       sourceRepos = ["*"]
-#       destinations = [
-#         {
-#           name      = "*"
-#           server    = "*"
-#           namespace = "*"
-#         }
-#       ]
-#       clusterResourceWhitelist = [
-#         {
-#           group = "*"
-#           kind  = "*"
-#         }
-#       ]
-#     }
-#   }
-# }
+    spec = {
+      description = "Cotong 환경"
+      sourceRepos = ["*"]
+      destinations = [
+        {
+          name      = "*"
+          server    = "*"
+          namespace = "*"
+        }
+      ]
+      clusterResourceWhitelist = [
+        {
+          group = "*"
+          kind  = "*"
+        }
+      ]
+    }
+  }
 
-# # Argo CD dev 애플리케이션 생성
-# resource "kubernetes_manifest" "argocd_dev_app" {
-#   for_each = toset(local.app)
+  depends_on = [
+    helm_release.argocd
+  ]
+}
 
-#   manifest = {
-#     apiVersion = "argoproj.io/v1alpha1"
-#     kind       = "Application"
+# Argo CD 애플리케이션 생성 - Ingress-nginx 사용 시
+resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
 
-#     metadata = {
-#       name      = "${each.key}-dev"
-#       namespace = kubernetes_namespace.argocd.metadata[0].name
-#       finalizers = [
-#         "resources-finalizer.argocd.argoproj.io"
-#       ]
-#     }
+    metadata = {
+      name      = "ingress-echo-nginx"
+      namespace = kubernetes_namespace.argocd.metadata[0].name
+      finalizers = [
+        "resources-finalizer.argocd.argoproj.io"
+      ]
+    }
 
-#     spec = {
-#       project = kubernetes_manifest.argocd_project.manifest.metadata.name
+    spec = {
+      project = kubernetes_manifest.argocd_project.manifest.metadata.name
 
-#       sources = [
-#         {
-#           repoURL        = "https://github.com/co-tong/ct-helm-charts.git"
-#           targetRevision = "HEAD"
-#           path           = each.key
-#           helm = {
-#             releaseName = each.key
-#             valueFiles = [
-#               "values_dev.yaml"
-#             ]
-#           }
-#         }
-#       ]
+      sources = [
+        {
+          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git" 
+          targetRevision = "HEAD"
+          path           = "chart"
+          helm = {
+            releaseName = "ingress-echo-nginx"
+            valueFiles = [
+              "values_nginx.yaml"
+            ]
+          }
+        }
+      ]
 
-#       destination = {
-#         name      = "in-cluster"
-#         namespace = "dev"
-#       }
+      destination = {
+        name      = "in-cluster"
+        namespace = "app"
+      }
 
-#       syncPolicy = {
-#         syncOptions : ["CreateNamespace=true"]
-#         automated : {}
-#       }
-#     }
-#   }
-# }
+      syncPolicy = {
+        syncOptions : ["CreateNamespace=true"]
+        automated : {}
+      }
+    }
+  }
 
-# # # Secrets Manager에서 애플리케이션 시크릿 조회
-# # data "aws_secretsmanager_secret" "application" {
-# #   for_each = toset(local.app)
-# #   name     = "${each.key}-secrets"
-# # }
+  depends_on = [
+    helm_release.argocd,
+    kubernetes_manifest.argocd_project
+  ]
+}
 
-# # data "aws_secretsmanager_secret_version" "application" {
-# #   for_each  = toset(local.app)
-# #   secret_id = data.aws_secretsmanager_secret.application[each.key].id
-# # }
 
-# # # 애플리케이션에 부여할 IAM 정책
-# # resource "aws_iam_policy" "application" {
-# #   for_each = toset(local.app)
+# Argo CD 애플리케이션 생성 - Traefik 사용 시
+resource "kubernetes_manifest" "argocd_app_ingress_traefik" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
 
-# #   name = each.key
+    metadata = {
+      name      = "ingress-echo-traefik"
+      namespace = kubernetes_namespace.argocd.metadata[0].name
+      finalizers = [
+        "resources-finalizer.argocd.argoproj.io"
+      ]
+    }
 
-# #   policy = jsonencode({
-# #     Version = "2012-10-17"
-# #     Statement = [
-# #       # 암호 정보를 불러올수 있는 권한
-# #       {
-# #         Sid = "secretsmanager"
-# #         Action = [
-# #           "secretsmanager:GetSecretValue",
-# #           "secretsmanager:DescribeSecret"
-# #         ]
-# #         Effect   = "Allow"
-# #         Resource = [data.aws_secretsmanager_secret_version.application[each.key].arn]
-# #       }
-# #     ]
-# #   })
-# # }
+    spec = {
+      project = kubernetes_manifest.argocd_project.manifest.metadata.name
 
-# # # 애플리케이션에 부여할 IAM 역할 (IRSA용)
-# # resource "aws_iam_role" "application" {
-# #   for_each = toset(local.app)
-# #   name     = "${each.key}-dev-role"
+      sources = [
+        {
+          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git" 
+          targetRevision = "HEAD"
+          path           = "chart"
+          helm = {
+            releaseName = "ingress-echo-traefik"
+            valueFiles = [
+              "values_traefik.yaml"
+            ]
+          }
+        }
+      ]
 
-# #   assume_role_policy = jsonencode({
-# #     Version = "2012-10-17"
-# #     Statement = [
-# #       {
-# #         Action = "sts:AssumeRoleWithWebIdentity"
-# #         Effect = "Allow"
-# #         Principal = {
-# #           Federated = module.eks.oidc_provider_arn
-# #         }
-# #         Condition = {
-# #           StringEquals = {
-# #             "${module.eks.oidc_provider}:sub" = "system:serviceaccount:intgapp:${each.key}"
-# #             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
-# #           }
-# #         }
-# #       }
-# #     ]
-# #   })
-# # }
+      destination = {
+        name      = "in-cluster"
+        namespace = "app"
+      }
 
-# # # 애플리케이션에 부여할 IAM 역할 정책 연결
-# # resource "aws_iam_role_policy_attachment" "application" {
-# #   for_each = toset(local.app)
+      syncPolicy = {
+        syncOptions : ["CreateNamespace=true"]
+        automated : {}
+      }
+    }
+  }
 
-# #   role       = aws_iam_role.application[each.key].name
-# #   policy_arn = aws_iam_policy.application[each.key].arn
-# # }
+  depends_on = [
+    helm_release.argocd,
+    kubernetes_manifest.argocd_project
+  ]
+}

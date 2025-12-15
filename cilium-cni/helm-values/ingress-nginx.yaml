@@ -25,7 +25,13 @@ controller:
     # NLB에서 Proxy Protocol(v2) 사용 시 반드시 활성화
     use-proxy-protocol: "true"
     real-ip-header: "proxy_protocol"
+    # Proxy Protocol에서 실제 클라이언트 IP를 추출하기 위한 신뢰할 수 있는 IP 범위 설정
+    # Proxy Protocol을 사용할 때는 모든 IP를 신뢰하도록 설정 (NLB가 Proxy Protocol을 통해 실제 IP를 전달)
+    set-real-ip-from: "0.0.0.0/0"
     use-forwarded-headers: "true"
+    # Proxy Protocol에서 실제 클라이언트 IP 추출을 위한 설정
+    compute-full-forwarded-for: "true"
+    forwarded-for-header: "X-Forwarded-For"
     # SnippetAnnotation등을 사용하기 위해서는 이제 위험 레벨을 Critical로 설정해야 합니다
     annotations-risk-level: "Critical"
   allowSnippetAnnotations: true

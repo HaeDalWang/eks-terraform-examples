@@ -174,6 +174,7 @@ resource "helm_release" "external_dns" {
     sources:
       - service
       - ingress
+      - traefik-proxy
     extraArgs:
       - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
     env:
@@ -184,5 +185,41 @@ resource "helm_release" "external_dns" {
 
   depends_on = [
     kubectl_manifest.karpenter_default_nodepool
+  ]
+}
+
+# External DNS RBAC for Traefik Proxy
+# 참고: https://kubernetes-sigs.github.io/external-dns/v0.14.1/tutorials/traefik-proxy/
+resource "kubernetes_cluster_role_v1" "external_dns_traefik_proxy" {
+  metadata {
+    name = "external-dns-traefik-proxy-reader"
+  }
+
+  rule {
+    api_groups = ["traefik.containo.us", "traefik.io"]
+    resources  = ["ingressroutes", "ingressroutetcps", "ingressrouteudps"]
+    verbs      = ["get", "watch", "list"]
+  }
+}
+
+resource "kubernetes_cluster_role_binding_v1" "external_dns_traefik_proxy" {
+  metadata {
+    name = "external-dns-traefik-proxy-reader"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = kubernetes_cluster_role_v1.external_dns_traefik_proxy.metadata[0].name
+  }
+
+  subject {
+    kind      = "ServiceAccount"
+    name      = "external-dns-sa"
+    namespace = "kube-system"
+  }
+
+  depends_on = [
+    helm_release.external_dns
   ]
 }

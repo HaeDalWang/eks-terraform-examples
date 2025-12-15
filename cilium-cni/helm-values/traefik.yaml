@@ -3,14 +3,12 @@ providers:
   kubernetesIngress:
     publishedService:
       enabled: true
-  kubernetesGateway:
+  file:
     enabled: true
-
-  # # File Provider
-  # file:
+    content: |
+      ${providers_file_content}
+  # kubernetesGateway:
   #   enabled: true
-  #   content: |
-
 service:
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: external
@@ -21,6 +19,8 @@ service:
     service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${acm_certificate_arn}
     service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
     service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+    # Traefik 서비스 자체는 external-dns에서 제외 (CNAME 루프 방지)
+    external-dns.alpha.kubernetes.io/exclude: "true"
 ports:
   web:
     proxyProtocol:
@@ -29,9 +29,8 @@ ports:
     forwardedHeaders:
       trustedIPs:
         - ${vpc_cidr}
-    # forwardedHeader@file: File Provider에서 정의한 forwardedHeader 미들웨어를 적용
-    # middlewares:
-    #   - forwardedHeader@file
+    middlewares:
+      - forwardedHeader@file
   websecure:
     targetPort: web
     tls:

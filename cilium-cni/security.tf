@@ -107,3 +107,30 @@ resource "aws_acm_certificate_validation" "project" {
 #     ]
 #   })
 # }
+
+########################################################
+# EKS AccessEntry
+########################################################
+locals {
+  eks_admin_iam_roles = [
+    "youngwoojung"
+  ]
+}
+# EKS 클러스터 접근 제어
+resource "aws_eks_access_entry" "cluster_admin" {
+  for_each = toset(local.eks_admin_iam_roles)
+
+  cluster_name  = module.eks.cluster_name
+  principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${each.key}"
+}
+resource "aws_eks_access_policy_association" "cluster_admin" {
+  for_each = toset(local.eks_admin_iam_roles)
+
+  cluster_name  = module.eks.cluster_name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${each.key}"
+
+  access_scope {
+    type = "cluster"
+  }
+}

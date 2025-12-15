@@ -20,6 +20,7 @@ resource "helm_release" "traefik" {
         aws_acm_certificate_validation.project.certificate_arn,
         data.aws_acm_certificate.existing.arn
       ])
+      providers_file_content = indent(6, file("${path.module}/yaml/traefik-middlewares.yaml"))
     })
   ]
 
@@ -30,14 +31,33 @@ resource "helm_release" "traefik" {
   ]
 }
 
+# Traefik Dashboard Ingress
+# Nginx Ingress Controller를 통해 대시보드 노출
+# NLB에서 TLS termination이 되므로 Ingress에서는 TLS 설정 불필요
+resource "kubectl_manifest" "traefik_dashboard" {
+  yaml_body = <<-YAML
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: traefik-dashboard
+      namespace: ${kubernetes_namespace.traefik.metadata[0].name}
+    spec:
+      ingressClassName: nginx
+      rules:
+        - host: traefik-dashboard.seungdobae.com
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: traefik
+                    port:
+                      name: traefik
+    YAML
 
-# # Traefik 대시보드 Ingress
-# resource "kubectl_manifest" "traefik_dashboard" {
-#   yaml_body = templatefile("${path.module}/yamls/traefik-dashboard.yaml", {
-#     domain_name = local.project_domain_name
-#   })
+  depends_on = [
+    helm_release.traefik
+  ]
+}
 
-#   depends_on = [
-#     helm_release.traefik
-#   ]
-# }

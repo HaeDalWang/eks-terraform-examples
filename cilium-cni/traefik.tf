@@ -15,7 +15,7 @@ resource "helm_release" "traefik" {
 
   values = [
     templatefile("${path.module}/helm-values/traefik.yaml", {
-      vpc_cidr            = module.vpc.vpc_cidr_block
+      vpc_cidr = module.vpc.vpc_cidr_block
       acm_certificate_arn = join(",", [
         aws_acm_certificate_validation.project.certificate_arn,
         data.aws_acm_certificate.existing.arn

@@ -1,0 +1,33 @@
+# ref: https://gateway.envoyproxy.io/docs/install/gateway-helm-api/
+podDisruptionBudget:
+  minAvailable: 1
+
+deployment:
+  envoyGateway:
+    resources:
+      limits:
+        memory: 1024Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+
+# Service 설정: Envoy Gateway Controller Service (관리용)
+# 실제 트래픽은 Gateway 리소스가 생성하는 Service를 통해 들어옵니다
+service:
+  type: ClusterIP  # Controller Service는 ClusterIP로 충분
+  # Gateway 리소스가 생성하는 Service는 config.envoyGateway.provider.kubernetes.envoyService에서 설정
+
+config:
+  # https://gateway.envoyproxy.io/docs/api/extension_types/#envoygateway
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    # EnvoyProxy 리소스를 통해 Service annotations를 관리하므로
+    # 여기서는 기본 설정만 유지합니다
+    logging:
+      level:
+        default: info

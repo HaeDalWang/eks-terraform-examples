@@ -74,7 +74,7 @@ resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
 
       sources = [
         {
-          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git" 
+          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git"
           targetRevision = "HEAD"
           path           = "chart"
           helm = {
@@ -124,7 +124,7 @@ resource "kubernetes_manifest" "argocd_app_ingress_traefik" {
 
       sources = [
         {
-          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git" 
+          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git"
           targetRevision = "HEAD"
           path           = "chart"
           helm = {

@@ -1,6 +1,5 @@
 http:
   middlewares:
-
     # -----------------------------
     # Forwarded Header (NLB에서 Proxy Protocol 사용 시)
     # -----------------------------
@@ -9,7 +8,6 @@ http:
         customRequestHeaders:
           X-Forwarded-Proto: "https"
           X-Forwarded-Port: "443"
-
     # -----------------------------
     # HTTPS 강제 리다이렉트
     # -----------------------------
@@ -17,7 +15,6 @@ http:
       redirectScheme:
         scheme: https
         permanent: true
-
     # -----------------------------
     # 보안 + 캐시 방지 헤더
     # (NGINX configuration-snippet 대체)
@@ -31,7 +28,6 @@ http:
         customResponseHeaders:
           Pragma: "no-cache"
           Cache-Control: "max-age=0, no-store, no-cache, must-revalidate"
-
     # -----------------------------
     # CORS 설정
     # -----------------------------
@@ -46,24 +42,20 @@ http:
         accessControlAllowHeaders:
           - X-Forwarded-For
         # accessControlAllowCredentials: true
-        # 정규식으로 패턴 매칭 (*.seungdobae.com 모든 서브도메인 허용)
         # Traefik CORS 미들웨어는 accessControlAllowOriginList 또는 accessControlAllowOriginListRegex 중 하나가 필수
         accessControlAllowOriginList:
           - "*" 
         # accessControlAllowOriginListRegex:
         #   - "^https://.*\\.seungdobae\\.com$"
         #   - "^https://seungdobae\\.com$"
-
     # -----------------------------
     # 공통 미들웨어 체인
     # -----------------------------
     app-chain:
       chain:
         middlewares:
-          - https-redirect
           - security-headers
           - cors
-
   # -----------------------------
   # Backend timeout (proxy read/send)
   # -----------------------------
@@ -72,3 +64,8 @@ http:
       forwardingTimeouts:
         responseHeaderTimeout: 60s
         idleConnTimeout: 60s
+    
+    backend-timeout-30:
+      forwardingTimeouts:
+        responseHeaderTimeout: 30s
+        idleConnTimeout: 30s

@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  #minAvailable: 1
+  # minAvailable = replicas-1
+  minAvailable: {{ sub .Values.deploy.replicas 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}

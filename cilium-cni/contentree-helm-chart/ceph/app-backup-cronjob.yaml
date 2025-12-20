@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: APPNAME-backup-cronjob
+  namespace: app-APPNAME
+spec:
+  schedule: "10 3 * * *"
+  successfulJobsHistoryLimit: 2
+  concurrencyPolicy: Allow
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: APPNAME-backup
+            env:
+            - name: TZ
+              value: Asia/Seoul
+            image: eeacms/rsync:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            #- sleep 600
+            - rsync -avz /data/* /backup
+            volumeMounts:
+            - name: tz-config
+              mountPath: /etc/localtime
+            - name: APPNAME-backup-volume
+              mountPath: "/backup"
+            - name: APPNAME-pvc
+              mountPath: "/data"
+            resources:
+              requests:
+                cpu: "0.2"
+                memory: "128Mi"
+              limits:
+                cpu: "1"
+                memory: "512Mi"
+          restartPolicy: OnFailure
+          hostNetwork: true
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: node-role.kubernetes.io/worker
+                      operator: Exists
+          volumes:
+          - name: tz-config
+            hostPath:
+              path: /usr/share/zoneinfo/Asia/Seoul
+          - name: APPNAME-backup-volume
+            hostPath:
+              path: /backup/APPNAME
+              type: Directory
+          - name: APPNAME-pvc
+            persistentVolumeClaim:
+              claimName: APPNAME
+          nodeSelector:
+            role: "worker"
+

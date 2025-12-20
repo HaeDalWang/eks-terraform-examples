@@ -1,0 +1,166 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    "app.kubernetes.io/managed-by": "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.deploy.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      #hostAliases: #필요시 사용. 
+      #- hostnames:
+      #  - dev-kube-harbor.joins.net
+      #  ip: 10.50.103.170
+      
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.deploy.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- if eq .Values.deploy.affinity "true" }}
+      affinity: # pod 분배 조건
+        podAntiAffinity: # 선호하지 않는 pod가 실행중인 Node 피해서 배치
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - {{ .Release.Name }}
+              topologyKey: "kubernetes.io/hostname"
+          # requiredDuringSchedulingIgnoredDuringExecution:
+          # - labelSelector:
+          #     matchExpressions:
+          #     - key: app
+          #       operator: In
+          #       values:
+          #       - {{ .Release.Name }}
+          #   topologyKey: "kubernetes.io/hostname"
+          #
+      nodeSelector:
+        role: {{ .Values.deploy.nodeSelector }}
+      {{- else if .Values.deploy.affinity }}
+      {{- end }}
+
+      initContainers: []
+      #initContainers:
+        #      - name: scouter-apm-agent
+        #image: dev-kube-harbor.joins.net/common/kube-scouter-agent2.17_wildfly
+        #command: ['/bin/sh','-c']
+        #args: ['cp scouter.conf /scouter && cp scouter.agent.jar /scouter']
+        #volumeMounts:
+        #- name: scouter-apm-agent
+        #  mountPath: /scouter
+
+
+      containers:
+        - name: {{ .Release.Name }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ .Values.global.registry }}/{{ .Values.global.project }}/{{ .Values.global.image }}:{{ .Values.global.tag }}
+          imagePullPolicy: {{ .Values.deploy.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              name: service-port
+            {{- if empty .Values.deploy.actuatorPort }}
+            {{- else }}
+            - containerPort: {{ .Values.deploy.actuatorPort }}
+              name: actuator-port
+            {{- end }}
+
+          env: 
+            - name: JVM_OPTS
+              value: {{ .Values.deploy.jvm_opts }}
+            - name: JVM_PROXY_OPTS
+              value: {{ .Values.deploy.jvm_proxy_opts }}
+            - name: SCOUTER_PROJECT_NAME
+              value: {{ .Values.global.project }}
+            - name: SCOUTER_SERVER
+              value: {{ .Values.deploy.scouter_ip }}
+            - name: SCOUTER_PORT
+              value: {{ quote .Values.deploy.scouter_port }}
+
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mount.path }}
+              readOnly: {{ .Values.persistence.mount.readOnly }}
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            - name: box
+              mountPath: /box
+
+          resources:
+            requests:
+              cpu: {{ .Values.deploy.resources.requests.cpu }}
+              memory: {{ .Values.deploy.resources.requests.memory }}
+            limits:
+              cpu: {{ .Values.deploy.resources.limits.cpu }}
+              memory: {{ .Values.deploy.resources.limits.memory }}
+
+          readinessProbe: ## pod probe start
+            httpGet:
+              path: {{ .Values.deploy.readinessProbe.httpGet.path }}
+              port: {{ .Values.deploy.readinessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.deploy.readinessProbe.initialDelaySeconds }} # Pod 기동 후 해당 시간만큼 기다린 후
+            periodSeconds: {{ .Values.deploy.readinessProbe.periodSeconds }}  # 해당 시간 마다 httpGet 요청을 한다.
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deploy.livenessProbe.httpGet.path }}
+              port: {{ .Values.deploy.livenessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.deploy.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deploy.livenessProbe.periodSeconds }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.deploy.startupProbe.httpGet.path }}
+              port: {{ .Values.deploy.startupProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.deploy.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deploy.startupProbe.periodSeconds }}
+
+      imagePullSecrets: []
+      #imagePullSecrets:
+      #- name: {{ .Release.Name }}-registry-dev
+      #- name: {{ .Release.Name }}-registory
+        
+      # 볼륨 설정
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: box
+          emptyDir: {}
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

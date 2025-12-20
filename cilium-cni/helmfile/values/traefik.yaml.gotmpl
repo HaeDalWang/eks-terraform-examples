@@ -1,0 +1,62 @@
+hostNetwork: true
+deployment:
+  kind: DaemonSet
+nodeSelector:
+  role: router
+service:
+  type: NodePort
+
+# DaemonSet + hostNetwork 사용 시 아래와 같은 제한조건 필요
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 2
+    maxSurge: 0
+
+# Traefik 고유 설정
+providers:
+  kubernetesIngress:
+    publishedService:
+      enabled: true
+  file:
+    enabled: true
+    content: |
+{{ readFile "traefik-middleware-file.yaml" | indent 6 }}
+  kubernetesGateway:
+    enabled: true
+
+ports:
+  web:
+    proxyProtocol:
+      trustedIPs:
+        - "10.123.0.0/16" # 실제 대역대로 변경 필요
+    forwardedHeaders:
+      trustedIPs:
+        - "10.123.0.0/16" # 실제 대역대로 변경 필요
+  traefik:
+    expose:
+      default: true
+
+additionalArguments:
+  - "--api.insecure=true"
+
+logs:
+  access:
+    enabled: true
+    format: json
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+metrics:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: false # 화성화 하기
+
+tolerations:
+  # router 노드의 taint 허용
+  - key: "role"
+    operator: "Equal"
+    value: "router"
+    effect: "NoSchedule"

@@ -26,6 +26,12 @@ config:
   envoyGateway:
     gateway:
       controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    # Admin 인터페이스 설정: 외부 접근을 위해 0.0.0.0으로 설정
+    admin:
+      address:
+        host: "0.0.0.0"  # 외부 접근 허용 (주의: 보안 고려 필요)
+        port: 19000
+      enablePprof: true  # 성능 프로파일링 활성화
     # EnvoyProxy 리소스를 통해 Service annotations를 관리하므로
     # 여기서는 기본 설정만 유지합니다
     logging:

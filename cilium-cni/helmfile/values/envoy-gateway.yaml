@@ -1,0 +1,52 @@
+envoyGateway:
+  deployment:
+    kind: Deployment # EG는 컨트롤러이므로 Deployment 권장
+    
+# 2. 실제 데이터 플레인(Envoy Proxy) 설정
+managedProxy:
+  deployment:
+    kind: DaemonSet
+    container:
+      env:
+        - name: ENVOY_GATEWAY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+    # hostNetwork 사용 시
+    hostNetwork: true
+    
+  nodeSelector:
+    role: router
+
+  # Traefik의 RollingUpdate 전략 계승
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+      maxSurge: 0
+
+# 3. 신뢰할 수 있는 IP 설정 (Traefik의 trustedIPs 대응)
+  service:
+    type: ClusterIP
+    # Proxy Protocol 설정 필요 시 추가
+
+# 4. 기본 TLS 인증서 설정
+# Envoy Gateway는 Gateway 리소스의 CertificateRefs를 통해 처리하지만,
+# 기본값을 강제하고 싶을 때 extraObjects를 활용합니다.
+extraObjects:
+  - apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    metadata:
+      name: envoy-gateway
+      namespace: envoy-gateway-system
+    spec:
+      gatewayClassName: envoy-gateway-class
+      listeners:
+        - name: https
+          protocol: HTTPS
+          port: 443
+          hostname: "*.joins.com"
+          tls:
+            mode: Terminate
+            certificateRefs:
+              - name: joint-domain-secret # TLS 시크릿 이름

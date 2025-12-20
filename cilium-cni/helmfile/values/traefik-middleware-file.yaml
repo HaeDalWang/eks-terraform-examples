@@ -1,0 +1,48 @@
+http:
+  middlewares:
+    forwardedHeader:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-Port: "443"
+
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+  
+    security-headers:
+      headers:
+        contentTypeNosniff: true
+        frameDeny: true
+        browserXssFilter: true
+        customResponseHeaders:
+          Pragma: "no-cache"
+          Cache-Control: "max-age=0, no-store, no-cache, must-revalidate"
+
+    cors:
+      headers:
+        addVaryHeader: true
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - HEAD
+          - OPTIONS
+        accessControlAllowHeaders:
+          - X-Forwarded-For
+        accessControlAllowCredentials: true
+        accessControlAllowOriginList:
+          - "*"
+        # accessControlAllowOriginListRegex:
+        #   - "^https://.*\\.seungdobae\\.com$"
+
+  # Backend timeout (proxy read/send)
+  serversTransports:
+    backend-timeout-60:
+      forwardingTimeouts:
+        responseHeaderTimeout: 60s
+        idleConnTimeout: 60s
+    backend-timeout-120:
+      forwardingTimeouts:
+        responseHeaderTimeout: 120s
+        idleConnTimeout: 120s

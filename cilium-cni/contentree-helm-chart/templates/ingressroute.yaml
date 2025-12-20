@@ -1,0 +1,57 @@
+{{- if .Values.ingressRoute.enabled -}}
+{{- $fullName := .Release.Name -}}
+{{- $svcPort := .Values.service.port -}}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    "app.kubernetes.io/managed-by": "{{ .Release.Service }}"
+spec:
+  entryPoints:
+    {{- range .Values.ingressRoute.entryPoints }}
+    - {{ . }}
+    {{- end }}
+  routes:
+    {{- range .Values.ingressRoute.hosts }}
+    {{- $host := .host -}}
+    {{- range .paths }}
+    - match: Host(`{{ $host }}`) && PathPrefix(`{{ .path }}`)
+      kind: Rule
+      services:
+        - name: {{ $fullName }}
+          port: {{ $svcPort }}
+          {{- if $.Values.ingressRoute.timeout }}
+          serversTransport: {{ $.Values.ingressRoute.timeout }}
+          {{- end }}
+          {{- if $.Values.ingressRoute.sticky.enabled }}
+          sticky:
+            cookie:
+              name: {{ $.Values.ingressRoute.sticky.cookieName | default "route" }}
+              secure: {{ $.Values.ingressRoute.sticky.secure | default true }}
+              httpOnly: {{ $.Values.ingressRoute.sticky.httpOnly | default true }}
+          {{- end }}
+      
+      {{- if $.Values.ingressRoute.middlewares }}
+      middlewares:
+        {{- range $.Values.ingressRoute.middlewares }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
+  
+{{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    {{- if .secretName }}
+    secretName: {{ .secretName }}
+    {{- else }}
+    {}
+    {{- end }}
+    {{- end }}
+  {{- else if .Values.ingress.tlsEnabled }}
+  tls: {}
+  {{- end }}
+{{- end }}

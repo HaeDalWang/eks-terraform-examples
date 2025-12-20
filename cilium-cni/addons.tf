@@ -175,6 +175,7 @@ resource "helm_release" "external_dns" {
       - service
       - ingress
       - traefik-proxy
+      - gateway-httproute  # Gateway API HTTPRoute 지원 추가
     extraArgs:
       - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
     env:

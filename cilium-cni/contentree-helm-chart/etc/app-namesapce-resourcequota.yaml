@@ -1,0 +1,13 @@
+# limit total size of resource in namespace
+# if namespace resourceQuota exists all pod have to set resource limits
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: APPNAME-resourcequota
+  namespace: app-APPNAME
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 12Gi
+    limits.cpu: "16"
+    limits.memory: 24Gi

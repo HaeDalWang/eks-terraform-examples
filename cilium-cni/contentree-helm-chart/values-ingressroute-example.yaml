@@ -1,0 +1,162 @@
+global:
+  # name: demo-springboot
+  # namespace: default
+  registry: k8s-harbor.joins.net # private 도커이미지 저장소
+  project: crimeprevention-dev # harbor 프로젝트이름
+  image: crimeprevention-dev
+  tag: 1
+
+imagePullSecrets: []
+#securityContext: []
+securityContext: 
+  runAsUser: 701
+  capabilities:
+    drop:
+    - ALL
+  #readOnlyRootFilesystem: true # 예외처리 필요. 활성화 하면 필요한 폴더 미리 dockerfile에서 전부 만들어줘야 함..
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  privileged: false
+
+deploy:
+  imagePullPolicy: Always
+  ## pod 개수 설정
+  replicas: 1
+  ## 배포되는 node label 설정
+  affinity: "true" ## "true" or "false", if true, All pods are allocated to different nodes
+  nodeSelector: "worker" # node name
+  ## Port
+  containerPort: 8080 # container service port
+  actuatorPort: 9999 # actuator port
+  ## 보안설정
+  podSecurityContext:
+    fsGroup: 701
+
+  ## JAVA 옵션  
+  
+  ### springboot
+  jvm_opts: "-Xms512m -Xmx2048m -Dspring.profiles.active=dev -DskipTests -XX:+UseG1GC -XX:+UseStringDeduplication -Djava.net.preferIPv4Stack=true -Djdk.tls.rejectClientInitiatedRenegotiation=true -javaagent:/apm/scouter.agent.jar -Dscouter.config=/apm/scouter.conf"
+
+  # 암호화 적용시 jasypt 옵션 추가
+  # -Djasypt.encryptor.password=
+
+  ### wildlfy (standalone.conf, standalone.xml 파일 없이 사용하는 경우 사용). datasource있는 경우는 standalone.xml 직접 사용필요
+  #jvm_opts: "-Xms1024m -Xmx2048m -XX:MetaspaceSize=256M -XX:MaxMetaspaceSize=256m -Djboss.bind.address=0.0.0.0 -Djboss.bind.address.management=0.0.0.0 -XX:+UseG1GC -XX:+UseStringDeduplication -Djava.net.preferIPv4Stack=true -Djboss.modules.system.pkgs=org.jboss.byteman,scouter -Dorg.jboss.resolver.warning=true -Dorg.jboss.as.logging.per-deployment=false -XX:+HeapDumpOnOutOfMemoryError -Djava.awt.headless=true -Dspring.profiles.active=dev -javaagent:/apm/scouter.agent.jar -Dscouter.config=/apm/scouter.conf"
+
+  ### proxy 필요한 경우
+  jvm_proxy_opts: ""
+  #jvm_proxy_opts: "-Djava.net.useSystemProxies=true -Dhttps.proxyHost=mkube-proxy.joins.net -Dhttps.proxyPort=3128 -Dhttps.nonProxyHosts=localhost|127.0.0.1|10.*.*.*|192.168.*.* -Dhttp.proxyHost=mkube-proxy.joins.net -Dhttp.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.0.0.1|10.*.*.*|192.168.*.*"
+
+  scouter_ip: 10.50.106.137
+  scouter_port: 7090
+
+  #elasticApm:
+  #  use: "false"
+  #  serverName: jsms-batch
+  #  deployMode: dev
+  #  apmServerUrl: http://elastic-apm-server-apm-server.efk:8200
+  #scouter:
+  #  server:
+  #    use: "true" # if use scouter agent : true (elastic, scouter choose 1)
+  #    ip: 10.50.106.137
+  #    port: 7090
+  #    hook_method_patterns: com.contentreej.*.*
+  #    hook_service_patterns: com.contentreej.*.*
+  #    exclude_patterns : /actuator/health,/actuator/prometheus,/actuator/health/liveness,/actuator/health/readiness
+
+  ## pod resource
+  resources:
+    requests:
+      cpu: "0.5"
+      memory: "1024Mi"
+    limits:
+      cpu: "2"
+      memory: "4096Mi"
+
+  ## PVC 설정
+  #  persistence:
+  #    enabled: false
+  #    existingClaim: appname-pvc
+  #    storageClass: appname 
+  #    mount:
+  #      path: /data
+  #      readOnly: false
+
+  ## pod health check
+  readinessProbe:
+    httpGet:
+      #path: /healthz
+      #port: 8080
+      # path: /
+      # port: 8080
+      path: /actuator/health/readiness
+      port: 9999
+    initialDelaySeconds: 30 # Pod 기동 후 해당 시간만큼 기다린 후
+    periodSeconds: 10 # 해당 시간 마다 httpGet 요청을 한다.
+  livenessProbe:
+    httpGet:
+      # path: /
+      # port: 8080
+      path: /actuator/health/liveness
+      port: 9999
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  startupProbe:
+    httpGet:
+      # path: /
+      # port: 8080
+      path: /actuator/health/liveness
+      port: 9999
+    initialDelaySeconds: 20
+    periodSeconds: 5 
+
+
+## PVC 설정
+persistence:
+  enabled: false
+  existingClaim: douzone-bill-pvc
+  storageClass: ceph-filesystem
+    #enabled: true
+    #existingClaim: appname
+    #storageClass: appname
+  mount:
+    path: /data
+    readOnly: false
+
+########### service #####################
+service:
+  port: 8080
+  protocol: TCP
+  targetPort: 8080
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  actuatorPort: 9999 # springboot actuator 미사용시 주석처리, pod healthcheck 포트 변경
+
+########### ingressroute #####################
+ingressRoute:
+  enabled: true
+  entryPoints:
+    - websecure
+  hosts:
+    - host: dev-crimeprevention.joins.com
+      paths:
+        - path: /
+          pathType: Prefix
+  middlewares:
+    - https-redirect@file
+    - forwardedHeader@file
+    - security-headers@file
+    - cors@file
+  timeout: backend-timeout-60@file
+  sticky:
+    enabled: true
+    cookieName: route
+    secure: true
+    httpOnly: true
+  # 기본 인증서(TLSStore) 사용 시 []
+  tls: []
+  # 특정 인증서 사용 시 (주석 해제해서 사용)
+  # tls:
+  #   - secretName: joins-com-tls-secret

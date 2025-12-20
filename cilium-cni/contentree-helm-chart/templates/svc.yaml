@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    "app.kubernetes.io/managed-by": "{{ .Release.Service }}"
+    "actuator-prometheus": "true"
+  annotations:
+    {{- if .Values.gateway.timeout }}
+    traefik.ingress.kubernetes.io/service.serverstransport: {{ .Values.gateway.timeout }}
+    {{- end }}
+    {{- if .Values.gateway.sticky.enabled }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: {{ .Values.gateway.sticky.cookieName | default "route" | quote }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie.secure: {{ .Values.gateway.sticky.secure | default "true" | quote }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie.httponly: {{ .Values.gateway.sticky.httpOnly | default "true" | quote }}
+    {{- end }}
+spec:
+  ports:
+    - port: {{ .Values.service.port }}
+      protocol: {{ .Values.service.protocol }}
+      targetPort: {{ .Values.service.targetPort }}
+      name: service-port
+    {{- if not (empty .Values.deploy.actuatorPort) }}
+    - port: {{ .Values.service.actuatorPort }}
+      protocol: TCP
+      targetPort: {{ .Values.service.actuatorPort }}
+      name: actuator-port
+    {{- end }}
+  selector:
+    app: {{ .Release.Name }}
+  type: {{ .Values.service.type }}
+  # 기존 필드는 유지, Traefik에서 Sticky 사용을 위해 None
+  sessionAffinity: {{ .Values.service.sessionAffinity | default "None" }}

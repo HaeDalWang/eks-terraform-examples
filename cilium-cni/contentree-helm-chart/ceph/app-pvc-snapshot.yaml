@@ -1,0 +1,20 @@
+apiVersion: snapscheduler.backube/v1
+kind: SnapshotSchedule
+metadata:
+  name: 6hourly
+  namespace: app-APPNAME
+spec:
+  claimSelector:
+    matchLabels:
+     "app": "APPNAME"
+  disabled: false
+  retention:
+    expires: "120h"
+    maxCount: 3
+  schedule: "0 */6 * * *"
+  snapshotTemplate:
+    labels:
+      default: default
+    #snapshotClassName: csi-rbdplugin-snapclass
+    snapshotClassName: csi-fsplugin-snapclass
+

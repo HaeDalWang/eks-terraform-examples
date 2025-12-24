@@ -68,7 +68,6 @@
 #         kubernetes:
 #           envoyService:
 #             type: LoadBalancer
-#             # ports 설정 제거: Gateway listener가 80만 사용하므로 자동으로 10080으로 매핑됨
 #             # NLB listener 443은 Service의 80 포트로 연결됨 (NLB가 자동으로 매핑)
 #             annotations:
 #               service.beta.kubernetes.io/aws-load-balancer-type: external
@@ -134,7 +133,7 @@
 #               from: All
 #         - name: https
 #           protocol: HTTP  # 프로토콜은 HTTP (NLB에서 이미 TLS termination됨)
-#           port: 443        # 포트 443 (Envoy Gateway가 자동으로 10443으로 매핑하지만, NLB에서 TLS termination 후 HTTP로 전달됨)
+#           port: 443       # 포트 443 (Envoy Gateway가 자동으로 10443으로 매핑하지만, NLB에서 TLS termination 후 HTTP로 전달됨)
 #           allowedRoutes:
 #             namespaces:
 #               from: All

@@ -70,11 +70,12 @@ resource "helm_release" "cilium" {
   values = [
     templatefile("${path.module}/helm-values/cilium.yaml", {
       k8sServiceHost         = replace(module.eks.cluster_endpoint, "https://", "")
-      lb_acm_certificate_arn = aws_acm_certificate.project.arn
+      # lb_acm_certificate_arn = aws_acm_certificate.project.arn
     })
   ]
 
   # Cilium CNI 애드온 생성 시 파드 Ready 기다리지 말고, 리소스 생성되면 바로 완료로 처리
+  # 왜냐하면 노드그룹과 서로 상충하여 닭/달걀 문제 발생, 즉 둘다 한번에 생성하되 굳이 서로의 조건을 보지않음 그러나 둘다 필요한건 맞아 서로가
   wait    = false # 파드 Ready 기다리지 말고, 리소스 생성되면 바로 완료로 처리
   timeout = 600   # 혹시라도 API 응답 지연 대비
 
@@ -98,7 +99,7 @@ module "eks_managed_node_group" {
   cluster_primary_security_group_id = module.eks.cluster_primary_security_group_id
   vpc_security_group_ids            = [module.eks.node_security_group_id]
 
-  # 켜두면 맨날 최신버전이라 업그레이드를 너무 자주해야함
+  # 켜두면 맨날 최신버전이라 업그레이드를 너무 자주해야함, 왜냐하면 최시버전 ami만 바라봄
   use_latest_ami_release_version = false
   ami_type                       = "AL2023_x86_64_STANDARD"
   capacity_type                  = "ON_DEMAND"
@@ -110,6 +111,7 @@ module "eks_managed_node_group" {
   # --- IAM Role 생성 + 기본 EKS 노드 정책 부착 ---
   create_iam_role            = true
   iam_role_attach_cni_policy = true
+  # 다른 모듈에서 바라보는지 순환에러 떠서 고민 중
   # iam_role_additional_policies = {
   #   AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   # }

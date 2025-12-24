@@ -26,7 +26,7 @@ resource "helm_release" "argocd" {
   ]
 
   depends_on = [
-    helm_release.ingress_nginx,
-    helm_release.aws_load_balancer_controller
+    helm_release.aws_load_balancer_controller,
+    kubectl_manifest.cilium_gateway
   ]
 }

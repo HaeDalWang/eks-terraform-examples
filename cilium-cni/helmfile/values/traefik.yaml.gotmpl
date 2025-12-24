@@ -1,10 +1,20 @@
-hostNetwork: true
+# hostNetwork: true
 deployment:
   kind: DaemonSet
 nodeSelector:
   role: router
+affinity: {}
+tolerations:
+  - key: role
+    operator: Equal
+    value: router
+    effect: NoSchedule
+  - key: workload
+    operator: Equal
+    value: system
+    effect: NoSchedule
 service:
-  type: NodePort
+  type: ClusterIP
 
 # DaemonSet + hostNetwork 사용 시 아래와 같은 제한조건 필요
 updateStrategy:
@@ -23,23 +33,39 @@ providers:
     content: |
 {{ readFile "traefik-middleware-file.yaml" | indent 6 }}
   kubernetesGateway:
-    enabled: true
+    enabled: false
 
 ports:
   web:
+    port: 80
+    hostPort: 80
     proxyProtocol:
       trustedIPs:
         - "10.123.0.0/16" # 실제 대역대로 변경 필요
     forwardedHeaders:
       trustedIPs:
         - "10.123.0.0/16" # 실제 대역대로 변경 필요
+  websecure:
+    port: 443
+    hostPort: 443
   traefik:
     expose:
       default: true
 
+# 기본 TLS 인증서 설정 (TLSStore)
+# ref: # https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/crd/tls/tlsstore/
+extraObjects:
+  - apiVersion: traefik.io/v1alpha1
+    kind: TLSStore
+    metadata:
+      name: default
+      namespace: traefik
+    spec:
+      defaultCertificate:
+        secretName: joint-domain-secret  # TLS 시크릿 이름
+
 additionalArguments:
   - "--api.insecure=true"
-
 logs:
   access:
     enabled: true
@@ -50,13 +76,10 @@ resources:
     memory: 256Mi
 metrics:
   prometheus:
-    enabled: true
+    enabled: false
     serviceMonitor:
-      enabled: false # 화성화 하기
+      enabled: false
 
-tolerations:
-  # router 노드의 taint 허용
-  - key: "role"
-    operator: "Equal"
-    value: "router"
-    effect: "NoSchedule"
+## 보안 설정 해제
+securityContext: null
+podSecurityContext: null

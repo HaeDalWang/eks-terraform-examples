@@ -134,3 +134,54 @@ resource "aws_eks_access_policy_association" "cluster_admin" {
     type = "cluster"
   }
 }
+
+########################################################
+# Self-signed Certificate for Joint Domain (*.seungdobae.com)
+########################################################
+# Traefik 등에서 사용할 공통 와일드카드 인증서 생성
+# 1년짜리 자체 서명 인증서
+
+# 개인키 생성
+resource "tls_private_key" "joint_domain" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+# 자체 서명 인증서 생성 (1년 유효기간)
+resource "tls_self_signed_cert" "joint_domain" {
+  private_key_pem = tls_private_key.joint_domain.private_key_pem
+
+  subject {
+    common_name  = "*.seungdobae.com"
+    organization = "Self-Signed"
+  }
+
+  validity_period_hours = 8760 # 1년 (365일 * 24시간)
+
+  # 와일드카드 도메인 지원
+  dns_names = [
+    "*.seungdobae.com",
+    "seungdobae.com"
+  ]
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+  ]
+}
+
+# Kubernetes TLS Secret 생성 (Traefik 네임스페이스)
+resource "kubernetes_secret_v1" "joint_domain_secret" {
+  metadata {
+    name      = "joint-domain-secret"
+    namespace = "traefik"
+  }
+
+  type = "kubernetes.io/tls"
+
+  data = {
+    "tls.crt" = tls_self_signed_cert.joint_domain.cert_pem
+    "tls.key" = tls_private_key.joint_domain.private_key_pem
+  }
+}

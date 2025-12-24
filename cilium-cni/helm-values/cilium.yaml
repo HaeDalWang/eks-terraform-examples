@@ -32,7 +32,7 @@ kubeProxyReplacement: "true"            # kube-proxy-free 모드 켜기
 k8sServiceHost: "${k8sServiceHost}"     # cluster 에 나오는 endpoint
 k8sServicePort: "443"                   # EKS API는 기본 443
 
-# --- (선택) system 전용 노드에만 Cilium 스케줄링 (네가 원하면 추가) ----
+# --- (선택) system 전용 노드에만 Cilium 스케줄링 ----
 # 없으면 오퍼레이터가 안뜸 > crd가 없음 > 노드가 Ready 안됨
 
 # envoy와 cilium agent는 어디든지 배포되도록 명시 
@@ -68,9 +68,13 @@ hubble:
       - "tcp"
       - "http"
 
+# --- (선택) Gateway API 활성화 -----------------
+gatewayAPI:
+  enabled: true                  # Gateway API CRD 및 컨트롤러 활성화
+ 
 # --- (선택) Cilium Ingress Controller 활성화 -----------------
 # ingressController:
-#   enabled: true                # [필수] Cilium Ingress 컨트롤러 ON
+#   enabled: true                # Cilium Ingress 컨트롤러 ON
 #   default: true
 #   loadbalancerMode: shared   # 모든 Ingress는 해당 LB를 사용
 #   service:
@@ -83,7 +87,6 @@ hubble:
 #       service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
 #       service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
 #       service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
-#       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${lb_acm_certificate_arn}
+#       service.beta.kubernetes.io/aws-load-balancer-ssl-cert: <ACM_CERTIFICATE_ARN>
 #       service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 #       service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
- 

@@ -6,9 +6,17 @@ controller:
       cpu: 100m
       memory: 256Mi
 server:
-  ingress:
+#   ingress:
+#     enabled: true
+#     ingressClassName: nginx
+  httproute:
     enabled: true
-    ingressClassName: nginx
+    hostnames:
+      - "${domain}"
+    parentRefs:
+      - name: cilium-gateway
+        namespace: default  # Gateway가 있는 namespace 명시
+        sectionName: http
 configs:
   secret:
     argocdServerAdminPassword: ${server_admin_password}

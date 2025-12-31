@@ -42,3 +42,4 @@ terraform.rc
 
 # Lambda build artifacts
 mlops/lambdas/build/
+.DS_Store

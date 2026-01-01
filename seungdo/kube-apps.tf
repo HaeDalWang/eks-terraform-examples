@@ -4,11 +4,8 @@ resource "kubernetes_namespace_v1" "argocd" {
     name = "argocd"
   }
 }
-data "aws_secretsmanager_secret_version" "auth" {
-  secret_id = "seungdo/auth"
-}
 resource "htpasswd_password" "argocd" {
-  password = jsondecode(data.aws_secretsmanager_secret_version.auth.secret_string)["argocd"]["adminPassword"]
+  password = jsondecode(data.aws_secretsmanager_secret_version.auth.secret_string)["basicauth"]["password"]
 }
 # Argo CD
 resource "helm_release" "argocd" {
@@ -21,7 +18,12 @@ resource "helm_release" "argocd" {
   values = [
     templatefile("${path.module}/helm-values/argocd.yaml", {
       domain                = "argocd.${local.project_domain_name}"
-      server_admin_password = htpasswd_password.argocd.bcrypt
+      server_admin_password = htpasswd_password.argocd.bcrypt,
+      lb_acm_certificate_arn = join(",", [
+        aws_acm_certificate_validation.project.certificate_arn,
+        data.aws_acm_certificate.existing.arn
+      ]),
+      lb_group_name = local.project
     })
   ]
 

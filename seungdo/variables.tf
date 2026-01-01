@@ -42,3 +42,8 @@ variable "eks_node_ami_alias_bottlerocket" {
   description = "EKS 노드 AMI 별칭 (Bottlerocket)"
   type        = string
 }
+
+variable "argocd_chart_version" {
+  description = "Argo CD 차트 버전"
+  type        = string
+}

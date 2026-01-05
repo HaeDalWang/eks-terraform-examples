@@ -63,7 +63,7 @@ resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
     kind       = "Application"
 
     metadata = {
-      name      = "ingress-echo-alb"
+      name      = "ezl-app-server"
       namespace = kubernetes_namespace_v1.argocd.metadata[0].name
       finalizers = [
         "resources-finalizer.argocd.argoproj.io"
@@ -75,13 +75,13 @@ resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
 
       sources = [
         {
-          repoURL        = "https://github.com/HaeDalWang/ingress-controller-test.git"
+          repoURL        = "https://github.com/HaeDalWang/seungdo-helm-chart.git"
           targetRevision = "HEAD"
-          path           = "chart"
+          path           = "ezl-app-server"
           helm = {
-            releaseName = "ingress-echo-alb"
+            releaseName = "app-server"
             valueFiles = [
-              "values_alb.yaml"
+              "values_dev.yaml"
             ]
           }
         }
@@ -89,7 +89,7 @@ resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
 
       destination = {
         name      = "in-cluster"
-        namespace = "app"
+        namespace = "intgapp"
       }
 
       syncPolicy = {

@@ -77,7 +77,7 @@ module "eks" {
       use_latest_ami_release_version = false
       ami_type                       = "AL2023_x86_64_STANDARD"
       capacity_type                  = "ON_DEMAND"
-      instance_types                 = ["t3a.small"]
+      instance_types                 = ["t3a.medium"]
       desired_size                   = 2
       min_size                       = 2
       max_size                       = 2
@@ -337,6 +337,7 @@ locals {
     "metrics-server",
     "aws-ebs-csi-driver",
     "eks-pod-identity-agent",
+    "aws-secrets-store-csi-driver-provider"
     # "snapshot-controller"
   ]
 }
@@ -354,6 +355,16 @@ resource "aws_eks_addon" "this" {
   addon_version               = data.aws_eks_addon_version.this[each.key].version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
+
+  # Secrets Store CSI Driver Provider에만 syncSecret 및 rotation 설정 추가
+  configuration_values = each.key == "aws-secrets-store-csi-driver-provider" ? jsonencode({
+    "secrets-store-csi-driver" = {
+      syncSecret = {
+        enabled = true
+      }
+      enableSecretRotation = true
+    }
+  }) : null
 
   depends_on = [
     kubectl_manifest.karpenter_default_nodepool

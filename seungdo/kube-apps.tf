@@ -31,3 +31,28 @@ resource "helm_release" "argocd" {
     helm_release.aws_load_balancer_controller
   ]
 }
+
+
+# KEDA를 설치할 네임스페이스
+resource "kubernetes_namespace_v1" "keda" {
+  metadata {
+    name = "keda"
+  }
+}
+
+# KEDA
+resource "helm_release" "keda" {
+  name       = "keda"
+  repository = "https://kedacore.github.io/charts"
+  chart      = "keda"
+  version    = var.keda_chart_version
+  namespace  = kubernetes_namespace_v1.keda.metadata[0].name
+
+  # 기본값 설치
+  # values = [
+  # ]
+
+  depends_on = [
+    helm_release.karpenter
+  ]
+}

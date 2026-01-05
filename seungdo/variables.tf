@@ -47,3 +47,8 @@ variable "argocd_chart_version" {
   description = "Argo CD 차트 버전"
   type        = string
 }
+
+variable "keda_chart_version" {
+  description = "KEDA 차트 버전"
+  type        = string
+}

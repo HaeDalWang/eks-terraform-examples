@@ -1,0 +1,145 @@
+# n8n Helm Chart Values (community-charts/n8n v1.16.15)
+# ref: https://artifacthub.io/packages/helm/community-charts/n8n
+
+# ========================================
+# n8n 이미지 설정
+# ========================================
+image:
+  repository: n8nio/n8n
+  pullPolicy: IfNotPresent
+
+# ========================================
+# 암호화 키 (필수)
+# ========================================
+encryptionKey: "${n8n_encryption_key}"
+
+# ========================================
+# 타임존 설정
+# ========================================
+timezone: "Asia/Seoul"
+
+# ========================================
+# Ingress 설정 (ingress-nginx 사용)
+# ========================================
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: n8n.${domain}
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# ========================================
+# Service 설정
+# ========================================
+service:
+  enabled: true
+  type: ClusterIP
+  port: 5678
+
+# ========================================
+# Database 설정 (PostgreSQL 사용)
+# ========================================
+db:
+  type: postgresdb
+  postgresdb:
+    poolSize: 2
+    connectionTimeout: 20000
+    schema: public
+    ssl:
+      enabled: false
+
+# ========================================
+# 내장 PostgreSQL (Bitnami subchart)
+# ========================================
+postgresql:
+  enabled: true
+  auth:
+    username: n8n
+    password: "${postgresql_password}"
+    database: n8n
+  primary:
+    persistence:
+      enabled: true
+      storageClass: gp3
+      size: 20Gi
+
+# ========================================
+# Main Pod 설정
+# ========================================
+main:
+  # Editor base URL (ingress host 자동 사용)
+  editorBaseUrl: ""
+
+  # 리소스 설정
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # Persistence 설정
+  persistence:
+    enabled: true
+    storageClass: gp3
+    accessMode: ReadWriteOnce
+    size: 10Gi
+
+# ========================================
+# Pod Security Context
+# ========================================
+podSecurityContext:
+  fsGroup: 1000
+  fsGroupChangePolicy: "OnRootMismatch"
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+# ========================================
+# 외부 Redis 설정 (Queue mode 필요시)
+# 현재는 비활성화 - 필요시 설정
+# ========================================
+externalRedis:
+  host: ""
+  # password: ""
+  # port: 6379
+
+# ========================================
+# 로그 설정
+# ========================================
+log:
+  level: info
+  output:
+    - console
+
+# ========================================
+# API 설정
+# ========================================
+api:
+  enabled: true
+  path: api
+  swagger:
+    enabled: true
+
+# ========================================
+# 버전 알림 비활성화
+# ========================================
+versionNotifications:
+  enabled: false
+
+# ========================================
+# 진단 비활성화
+# ========================================
+diagnostics:
+  enabled: false

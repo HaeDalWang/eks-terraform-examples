@@ -1,70 +1,68 @@
-# EKS AccessEntry 설정 스크립트
+# Scripts
 
-## 개요
-`saltware-kor` IAM Role에 EKS 클러스터 접근 권한을 부여하는 자동화 스크립트입니다.
+유틸리티 스크립트 모음
 
-## 스크립트 기능
-- IAM Role 자동 생성 (존재하지 않는 경우)
-- IAM Policy 생성 및 연결
-- EKS AccessEntry 생성
-- AWS 관리형 정책 연결 (AmazonEKSAdminViewPolicy)
-- kubeconfig 자동 업데이트
+## downtime-test.sh
 
-## 사용법
+무중단 배포 테스트를 위한 스크립트입니다.  
+지정된 URL로 주기적으로 요청을 보내 응답 상태를 모니터링합니다.
 
-### 기본 사용법
+### 사용법
+
 ```bash
-./setup-eks-access.sh -c CLUSTER_NAME -a ACCOUNT_ID -r REGION
+# 기본 사용 (1초 간격)
+./scripts/downtime-test.sh
+
+# URL 지정
+./scripts/downtime-test.sh https://your-app.example.com/health
+
+# URL과 간격 지정 (0.5초)
+./scripts/downtime-test.sh https://your-app.example.com/health 0.5
 ```
 
-### 파라미터
-- `-c`: EKS 클러스터 이름 (필수)
-- `-a`: AWS 계정 ID (필수)
-- `-r`: AWS 리전 (필수)
-- `-h`: 도움말 출력
+### 출력 예시
 
-### 사용 예시
-```bash
-# mlops 클러스터에 대한 접근 권한 설정
-./setup-eks-access.sh -c mlops -a 863422182520 -r ap-northeast-2
+```
+==========================================
+🚀 무중단 배포 테스트 시작
+==========================================
+URL: https://app.sd.seungdobae.com/api/intgapp/ping/
+Interval: 1s
+Log: /tmp/downtime-test-20260111-123456.log
+종료: Ctrl+C
+==========================================
 
-# 다른 클러스터 예시
-./setup-eks-access.sh -c my-cluster -a 123456789012 -r us-west-2
+[2026-01-11 12:34:56] #1 | HTTP: 200 | Time: 0.125s | IP: 3.35.xxx.xxx | ✅ OK
+[2026-01-11 12:34:57] #2 | HTTP: 200 | Time: 0.098s | IP: 3.35.xxx.xxx | ✅ OK
+[2026-01-11 12:34:58] #3 | HTTP: 502 | Time: 0.045s | IP: 3.35.xxx.xxx | ❌ FAIL
+[2026-01-11 12:34:59] #4 | HTTP: 200 | Time: 0.112s | IP: 3.35.xxx.xxx | ✅ OK
+
+^C
+==========================================
+📊 최종 결과
+==========================================
+총 요청: 100
+성공: 99
+실패: 1
+성공률: 99.00%
+테스트 시간: 100초
+로그 파일: /tmp/downtime-test-20260111-123456.log
+==========================================
 ```
 
-## 실행 전 준비사항
-1. AWS CLI 설치 및 구성
-2. 적절한 IAM 권한 (IAM Role/Policy 생성, EKS 관리 권한)
-3. kubectl 설치
+### 기능
 
-## 생성되는 리소스
-- **IAM Role**: `saltware-kor`
-- **IAM Policy**: `EKSChecklistPolicy`
-- **EKS AccessEntry**: 클러스터별로 생성
-- **연결된 정책**: `AmazonEKSAdminViewPolicy`
+| 항목 | 설명 |
+|------|------|
+| HTTP 상태 | 200이면 성공, 그 외 실패 |
+| 응답 시간 | 각 요청의 소요 시간 |
+| Remote IP | 요청이 도달한 LB/서버 IP |
+| 로그 파일 | `/tmp/`에 자동 저장 |
+| 종료 | `Ctrl+C` 누르면 통계 출력 |
 
-## 권한 테스트
-스크립트 실행 후 다음 명령으로 권한을 확인할 수 있습니다:
-```bash
-kubectl get nodes
-kubectl get pods --all-namespaces
-kubectl get services --all-namespaces
-```
+### 활용 시나리오
 
-## 문제 해결
-
-### AccessEntry 삭제 (재설정 시)
-```bash
-aws eks delete-access-entry --cluster-name CLUSTER_NAME --principal-arn arn:aws:iam::ACCOUNT_ID:role/saltware-kor
-```
-
-### Role 삭제 (완전 재생성 시)
-```bash
-aws iam detach-role-policy --role-name saltware-kor --policy-arn arn:aws:iam::ACCOUNT_ID:policy/EKSChecklistPolicy
-aws iam delete-role --role-name saltware-kor
-```
-
-## 주의사항
-- 스크립트는 기존 리소스가 있으면 건너뛰고 진행합니다
-- Role 생성 후 AWS 전파를 위해 10초 대기합니다
-- AWS CLI pager가 자동으로 비활성화됩니다
+- 배포 중 서비스 가용성 모니터링
+- Ingress 전환 시 무중단 검증
+- 롤링 업데이트 테스트
+- Load Balancer 헬스체크 검증

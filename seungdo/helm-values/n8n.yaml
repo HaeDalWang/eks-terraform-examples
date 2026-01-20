@@ -5,9 +5,16 @@
 # n8n 이미지 설정
 # ========================================
 image:
-  repository: n8nio/n8n
-  pullPolicy: IfNotPresent
+  # repository: n8nio/n8n
+  repository: svvwac98/n8n-ffmpeg
+  tag: "latest"
+  pullPolicy: Always
 
+serviceAccount:
+  create: true
+  name: n8n
+  annotations:
+    eks.amazonaws.com/role-arn: "${irsa_arn}"
 # ========================================
 # 암호화 키 (필수)
 # ========================================
@@ -74,8 +81,8 @@ postgresql:
 # Main Pod 설정
 # ========================================
 main:
-  # Editor base URL (ingress host 자동 사용)
-  editorBaseUrl: ""
+  # Editor base URL (NLB에서 TLS 터미네이션하므로 HTTPS로 명시 설정)
+  editorBaseUrl: "https://n8n.${domain}"
 
   # 리소스 설정
   resources:
@@ -92,6 +99,18 @@ main:
     storageClass: gp3
     accessMode: ReadWriteOnce
     size: 10Gi
+
+  # 추가 환경 변수
+  # n8n 2.0에서는 executeCommand가 기본적으로 비활성화되어 있음
+  # NODES_EXCLUDE를 빈 배열로 설정하여 모든 노드 활성화 (또는 특정 노드만 제외)
+  extraEnvVars:
+    NODES_EXCLUDE: "[]"
+    # 바이너리 파일 저장 시 모든 경로 허용 원래는 안되는데 버그 때문에 그냥 다 허용
+    N8N_RESTRICT_FILE_ACCESS_TO: ""
+    # .n8n 디렉토리와 사용자 정의 구성 파일에 대한 모든 파일 접근을 허용
+    N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: "false"
+    # 노드 내부에서 환경 변수 접근을 허용
+    N8N_BLOCK_ENV_ACCESS_IN_NODES: "true"
 
 # ========================================
 # Pod Security Context
@@ -143,3 +162,12 @@ versionNotifications:
 # ========================================
 diagnostics:
   enabled: false
+
+# ========================================
+# 커뮤니티 노드 설치
+# ========================================
+nodes:
+  external:
+    allowAll: false
+    packages:
+      - "n8n-nodes-mediafx@1.5.0"

@@ -56,3 +56,32 @@ resource "helm_release" "keda" {
     helm_release.karpenter
   ]
 }
+
+# Kubescout를 설치할 네임스페이스
+resource "kubernetes_namespace_v1" "kubescout" {
+  metadata {
+    name = "kubescout"
+  }
+}
+
+# Kubescout
+resource "helm_release" "kubescout" {
+  name      = "kubescout"
+  chart     = "oci://ghcr.io/haedalwang/charts/kubescout"
+  namespace = kubernetes_namespace_v1.kubescout.metadata[0].name
+  version    = "0.1.1"
+
+  values = [
+    templatefile("${path.module}/helm-values/kubescout.yaml", {
+      domain = "kubescout.${local.project_domain_name}"
+    })
+  ]
+  
+  # 재설치
+  replace      = true
+  force_update = true
+  
+  depends_on = [
+    helm_release.ingress_nginx
+  ]
+}

@@ -10,11 +10,9 @@ image:
   tag: "latest"
   pullPolicy: Always
 
-serviceAccount:
-  create: true
-  name: n8n
-  annotations:
-    eks.amazonaws.com/role-arn: "${irsa_arn}"
+# serviceAccount:
+#   create: true
+
 # ========================================
 # 암호화 키 (필수)
 # ========================================

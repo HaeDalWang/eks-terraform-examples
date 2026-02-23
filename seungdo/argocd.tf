@@ -56,51 +56,51 @@ resource "kubernetes_manifest" "argocd_project" {
   ]
 }
 
-# Argo CD 애플리케이션 생성 (ingress-controller-test.git)
-resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "Application"
+# # Argo CD 애플리케이션 생성 (ingress-controller-test.git)
+# resource "kubernetes_manifest" "argocd_app_ingress_nginx" {
+#   manifest = {
+#     apiVersion = "argoproj.io/v1alpha1"
+#     kind       = "Application"
 
-    metadata = {
-      name      = "ezl-app-server"
-      namespace = kubernetes_namespace_v1.argocd.metadata[0].name
-      finalizers = [
-        "resources-finalizer.argocd.argoproj.io"
-      ]
-    }
+#     metadata = {
+#       name      = "ezl-app-server"
+#       namespace = kubernetes_namespace_v1.argocd.metadata[0].name
+#       finalizers = [
+#         "resources-finalizer.argocd.argoproj.io"
+#       ]
+#     }
 
-    spec = {
-      project = kubernetes_manifest.argocd_project.manifest.metadata.name
+#     spec = {
+#       project = kubernetes_manifest.argocd_project.manifest.metadata.name
 
-      sources = [
-        {
-          repoURL        = "https://github.com/HaeDalWang/seungdo-helm-chart.git"
-          targetRevision = "HEAD"
-          path           = "ezl-app-server"
-          helm = {
-            releaseName = "app-server"
-            valueFiles = [
-              "values_dev.yaml"
-            ]
-          }
-        }
-      ]
+#       sources = [
+#         {
+#           repoURL        = "https://github.com/HaeDalWang/seungdo-helm-chart.git"
+#           targetRevision = "HEAD"
+#           path           = "ezl-app-server"
+#           helm = {
+#             releaseName = "app-server"
+#             valueFiles = [
+#               "values_dev.yaml"
+#             ]
+#           }
+#         }
+#       ]
 
-      destination = {
-        name      = "in-cluster"
-        namespace = "intgapp"
-      }
+#       destination = {
+#         name      = "in-cluster"
+#         namespace = "intgapp"
+#       }
 
-      syncPolicy = {
-        syncOptions : ["CreateNamespace=true"]
-        automated : {}
-      }
-    }
-  }
+#       syncPolicy = {
+#         syncOptions : ["CreateNamespace=true"]
+#         automated : {}
+#       }
+#     }
+#   }
 
-  depends_on = [
-    helm_release.argocd,
-    kubernetes_manifest.argocd_project
-  ]
-}
+#   depends_on = [
+#     helm_release.argocd,
+#     kubernetes_manifest.argocd_project
+#   ]
+# }

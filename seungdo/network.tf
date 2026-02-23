@@ -33,3 +33,19 @@ module "vpc" {
     "karpenter.sh/discovery" = local.project
   }
 }
+
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = module.vpc.vpc_id
+  service_name = "com.amazonaws.${data.aws_region.current.id}.s3"
+  subnet_ids   = module.vpc.private_subnets
+
+  tags = {
+    Name      = "${local.project}-s3-endpoint"
+    project   = local.project
+    terraform = "true"
+  }
+
+  lifecycle {
+    ignore_changes = [subnet_ids]
+  }
+}

@@ -130,6 +130,29 @@ resource "aws_security_group_rule" "node_to_cluster_ingress" {
   description              = "Allow all traffic from node security group to cluster primary security group"
 }
 
+# Karpenter Controller에 부여할 신뢰관계 정책 
+data "aws_iam_policy_document" "karpenter_controller_assume_role_policy" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Federated"
+      identifiers = [module.eks.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks.oidc_provider}:sub"
+      values   = ["system:serviceaccount:karpenter:karpenter"]
+    }
+    # https://aws.amazon.com/premiumsupport/knowledge-center/eks-troubleshoot-oidc-and-irsa/?nc1=h_ls
+    condition {
+      test     = "StringEquals"
+      variable = "${module.eks.oidc_provider}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+  }
+}
 # Karpenter를 배포할 네임 스페이스
 resource "kubernetes_namespace_v1" "karpenter" {
   metadata {
@@ -147,8 +170,12 @@ module "karpenter" {
   node_iam_role_name            = "${module.eks.cluster_name}-node-role"
   node_iam_role_use_name_prefix = false
 
-  # Pod Identity는 Fargate을 지원하지 않음, IRSA을 karpenter 모듈이 지원하지않음
+  # Pod Identity는 Fargate을 지원하지 않음, IRSA을 karpenter 모듈이 지원하지않음 그러므로 전부 false 후
+  # 신뢰관계 정책을 직접 부여하는 방식으로 변경
   create_pod_identity_association = false
+  iam_role_source_assume_policy_documents = [
+    data.aws_iam_policy_document.karpenter_controller_assume_role_policy.json
+  ]
 
   # Controller IAM Policy 이름 고정 (IRSA에서 참조하기 위해)
   iam_policy_name            = "KarpenterController-${module.eks.cluster_name}"
@@ -167,32 +194,32 @@ module "karpenter" {
 }
 
 # Karpenter module이 생성한 Controller IAM Policy 조회
-data "aws_iam_policy" "karpenter_controller" {
-  name       = "KarpenterController-${module.eks.cluster_name}"
-  depends_on = [module.karpenter]
-}
+# data "aws_iam_policy" "karpenter_controller" {
+#   name       = "KarpenterController-${module.eks.cluster_name}"
+#   depends_on = [module.karpenter]
+# }
 
-# Karpenter IRSA
-module "karpenter_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "6.2.3" # 최신화 2025년 12월 31일
+# # Karpenter IRSA
+# module "karpenter_irsa" {
+#   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+#   version = "6.2.3" # 최신화 2025년 12월 31일
 
-  name = "KarpenterController-${module.eks.cluster_name}-irsa"
+#   name = "KarpenterController-${module.eks.cluster_name}-irsa"
 
-  # Karpenter module이 생성한 policy를 재사용
-  policies = {
-    karpenter = data.aws_iam_policy.karpenter_controller.arn
-  }
+#   # Karpenter module이 생성한 policy를 재사용
+#   policies = {
+#     karpenter = data.aws_iam_policy.karpenter_controller.arn
+#   }
 
-  oidc_providers = {
-    cotong = {
-      provider_arn = module.eks.oidc_provider_arn
-      namespace_service_accounts = [
-        "karpenter:karpenter"
-      ]
-    }
-  }
-}
+#   oidc_providers = {
+#     cotong = {
+#       provider_arn = module.eks.oidc_provider_arn
+#       namespace_service_accounts = [
+#         "karpenter:karpenter"
+#       ]
+#     }
+#   }
+# }
 
 # Karpenter CRDs
 # 분리해서 설치 시 karpenter chart에서 "skip_crds = true" 옵션 사용 필수
@@ -224,7 +251,7 @@ resource "helm_release" "karpenter" {
         spotToSpotConsolidation: true
     serviceAccount:
       annotations:
-        eks.amazonaws.com/role-arn: ${module.karpenter_irsa.arn}
+        eks.amazonaws.com/role-arn: ${module.karpenter.iam_role_arn}
     controller:
       resources:
         requests:
@@ -243,7 +270,7 @@ resource "helm_release" "karpenter" {
 
   depends_on = [
     helm_release.karpenter-crd,
-    module.karpenter_irsa,
+    module.karpenter
   ]
 }
 
@@ -257,7 +284,7 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       name: default
     spec:
       amiSelectorTerms:
-      - alias: "${var.eks_node_ami_alias_al2023}"
+      - alias: "${var.eks_node_ami_alias_bottlerocket}"
       role: ${module.karpenter.node_iam_role_name}
       subnetSelectorTerms:
       - tags:

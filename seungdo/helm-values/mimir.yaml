@@ -1,0 +1,296 @@
+# ref: https://grafana.com/docs/helm-charts/mimir-distributed/latest/run-production-environment-with-helm/
+# ref: https://github.com/grafana/mimir/blob/main/operations/helm/charts/mimir-distributed/small.yaml
+#
+# v6.0.x 기본 아키텍처는 Kafka 기반 ingest storage → 이 환경에서는 classic 아키텍처 사용
+# (kafka/ingest_storage 비활성화 → 기존 Prometheus remote-write 방식)
+
+# ============================================================
+# MinIO / Kafka 비활성화 (프로덕션에서는 S3/외부 Kafka 사용)
+# ============================================================
+minio:
+  enabled: false
+
+kafka:
+  enabled: false
+
+# ============================================================
+# 단일 ServiceAccount (IRSA 적용)
+# ============================================================
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ${mimir_sa_arn}
+
+# ============================================================
+# Mimir 핵심 설정
+# ============================================================
+mimir:
+  structuredConfig:
+    # Classic 아키텍처 사용 (v6.0.x 기본은 Kafka ingest storage ON)
+    # ingest_storage.enabled: false + push_grpc_method_enabled: true 세트로 설정해야 함
+    ingest_storage:
+      enabled: false
+    ingester:
+      push_grpc_method_enabled: true
+
+    # S3 공통 백엔드 (IRSA 사용 → access_key/secret_key 불필요)
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: s3.ap-northeast-2.amazonaws.com
+          region: ap-northeast-2
+    # 같은 버킷, storage_prefix로 경로 분리 (s3 블록 바깥 최상위에 위치해야 함)
+    blocks_storage:
+      storage_prefix: blocks
+      s3:
+        bucket_name: ${mimir_s3_bucket}
+    alertmanager_storage:
+      storage_prefix: alertmanager
+      s3:
+        bucket_name: ${mimir_s3_bucket}
+    ruler_storage:
+      storage_prefix: ruler
+      s3:
+        bucket_name: ${mimir_s3_bucket}
+    # 멀티테넌시 비활성화 (단일 클러스터 운영)
+    multitenancy_enabled: false
+    limits:
+      # ingestion 한계
+      ingestion_rate: 10000
+      ingestion_burst_size: 200000
+      # 최대 시리즈 수
+      max_global_series_per_user: 300000
+      # 쿼리 시간 범위
+      max_query_lookback: 0
+
+# ============================================================
+# 컴포넌트 리소스 (small.yaml 기준 lab 환경으로 축소)
+# ============================================================
+
+# Alertmanager (규칙 알림 처리)
+# 라우팅/receiver 설정은 여기 fallbackConfig에 정의
+# 추후 Slack/PagerDuty 등 receiver 추가 시 이 블록을 수정
+alertmanager:
+  enabled: true
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 8Gi
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  statefulSet:
+    enabled: true
+  zoneAwareReplication:
+    enabled: false
+  # Alertmanager 기본 라우팅/receiver 설정
+  # multitenancy_enabled: false이므로 anonymous tenant에 적용됨
+  # Mimir Alertmanager는 tenant별로 config를 관리하나,
+  # fallbackConfig는 tenant별 config가 없을 때 사용되는 기본값
+  fallbackConfig: |
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['namespace', 'alertname', 'severity']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+      - matchers:
+        - alertname = "Watchdog"
+        receiver: 'null'
+      # severity: critical → 즉시 알림 (repeat 1h)
+      - matchers:
+        - severity = "critical"
+        receiver: 'null'   # TODO: slack-critical 등으로 교체
+        repeat_interval: 1h
+      # severity: warning → 4h 간격 알림
+      - matchers:
+        - severity = "warning"
+        receiver: 'null'   # TODO: slack-warning 등으로 교체
+        repeat_interval: 4h
+    receivers:
+    - name: 'null'
+    # Slack receiver 예시 (추후 활성화)
+    # - name: 'slack-critical'
+    #   slack_configs:
+    #   - api_url: '<SLACK_WEBHOOK_URL>'
+    #     channel: '#noti-alertmanager'
+    #     send_resolved: true
+    #     title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+    #     text: >-
+    #       *Cluster:* {{ .CommonLabels.cluster }}
+    #       *Namespace:* {{ .CommonLabels.namespace }}
+    #       {{ range .Alerts }}
+    #       *Alert:* {{ .Annotations.summary }}
+    #       *Description:* {{ .Annotations.description }}
+    #       {{ end }}
+
+# Compactor (오래된 블록 압축/정리)
+compactor:
+  persistentVolume:
+    size: 10Gi
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+# Distributor (write path: 수신된 샘플을 ingester로 분배)
+distributor:
+  replicas: 2
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+# Ingester (메트릭 write path 핵심 컴포넌트)
+# replication_factor 기본값 3 → 3개 이상의 replica 필수 (quorum 2/3)
+ingester:
+  replicas: 3
+  persistentVolume:
+    size: 10Gi
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: 200m
+      memory: 1Gi
+  topologySpreadConstraints: {}
+  affinity: {}
+  zoneAwareReplication:
+    enabled: false
+
+# Querier (read path: 블록/ingester에서 메트릭 조회)
+querier:
+  replicas: 1
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+# Query Frontend (read path: 쿼리 분할/캐싱 처리)
+query_frontend:
+  replicas: 1
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Query Scheduler (쿼리 큐 관리)
+query_scheduler:
+  enabled: true
+  replicas: 2
+
+# Ruler (recording rule / alerting rule 평가)
+# 현재: Prometheus가 각 클러스터에서 룰 평가 → Ruler 미사용
+# 추후: cross-cluster 집계 알람 필요 시 Ruler에 룰 업로드하여 활성화
+ruler:
+  enabled: false
+  # replicas: 1
+  # resources:
+  #   limits:
+  #     memory: 512Mi
+  #   requests:
+  #     cpu: 100m
+  #     memory: 256Mi
+
+# Store Gateway (read path: S3에서 오래된 블록 조회)
+# sharding_ring.replication_factor 기본값 3 → 3개 replica 필수
+store_gateway:
+  replicas: 3
+  persistentVolume:
+    size: 8Gi
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  topologySpreadConstraints: {}
+  affinity: {}
+  zoneAwareReplication:
+    enabled: false
+
+# Gateway (nginx 프록시 - Prometheus remote-write / Grafana datasource 엔드포인트)
+#
+# [단일 클러스터] mgmt Prometheus → mgmt Mimir
+#   - 같은 클러스터 내부에서 접근하므로 ingress 불필요
+#   - remote-write url: http://mimir-gateway.monitoring.svc.cluster.local:80/api/v1/push
+#
+# [멀티 클러스터] dev/stg Prometheus → mgmt Mimir
+#   - 외부 클러스터에서 접근하므로 ingress를 열어야 함
+#   - 아래 주석 처리된 ingress 블록을 활성화
+#   - remote-write url: https://mimir.sd.seungdobae.com/api/v1/push
+#   - 보안: basicAuth 또는 mTLS 적용 권장 (아래 nginx auth 예시 참고)
+gateway:
+  enabled: true
+  replicas: 1
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  ingress:
+    # enabled: false  # 단일 클러스터 운영 시 비활성화 (cluster-internal 접근)
+    # ----------------------------------------------------------------
+    # 멀티 클러스터 운영 시 아래 블록 활성화
+    # ----------------------------------------------------------------
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - host: mimir.sd.seungdobae.com   # {mimir_hostname} 템플릿 변수로 관리 가능
+      paths:
+      - path: /
+        pathType: Prefix
+    annotations:
+      # remote-write는 인증 없이 열면 누구나 메트릭 push 가능 → basicAuth 필수
+      # nginx.ingress.kubernetes.io/auth-type: basic
+      # nginx.ingress.kubernetes.io/auth-secret:   # kubernetes_secret 리소스로 생성
+      # 대용량 메트릭 push를 위한 body size 제한 완화
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+
+# Overrides Exporter, Override의 리밋을 메트릭에 정보로 추가하는 컴포넌트이므로 일반적인 경우 비활성화
+overrides_exporter:
+  enabled: false
+
+# ============================================================
+# 캐시 (lab 환경 - 비활성화하여 리소스 절감)
+# small.yaml은 각 3 replica이나 lab에서는 비활성화
+# ============================================================
+chunks-cache:
+  enabled: true
+  replicas: 1
+index-cache:
+  enabled: true
+  replicas: 1
+metadata-cache:
+  enabled: true
+  replicas: 1
+results-cache:
+  enabled: true
+  replicas: 1
+
+# ============================================================
+# meta-monitoring (Mimir 자체 메트릭 수집)
+# ============================================================
+metaMonitoring:
+  serviceMonitor:
+    enabled: false

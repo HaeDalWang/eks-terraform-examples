@@ -158,7 +158,7 @@
 #   load_balancer_type = "network"
 #   vpc_id             = module.vpc.vpc_id
 #   subnets            = module.vpc.public_subnets
-  
+
 #   # 테스트 환경이므로 삭제 방지 비활성화
 #   enable_deletion_protection = false
 

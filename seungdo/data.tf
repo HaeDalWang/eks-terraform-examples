@@ -17,3 +17,12 @@ data "aws_eks_cluster_auth" "this" {
 data "aws_route53_zone" "this" {
   name = "${var.domain_name}."
 }
+
+########################################################
+# 암호 정보가 저장된 Secrets
+########################################################
+
+# 다방면에서 사용되는 암호 정보
+data "aws_secretsmanager_secret_version" "auth" {
+  secret_id = "seungdo/auth"
+}

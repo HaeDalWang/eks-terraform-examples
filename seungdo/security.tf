@@ -1,7 +1,3 @@
-# 여러 오픈소스 솔루션들의 비밀번호를 저장한 Secrets Manager 조회
-data "aws_secretsmanager_secret_version" "auth" {
-  secret_id = "seungdo/auth"
-}
 ########################################################
 # ACM Certificate for Project Domain
 ########################################################
@@ -52,12 +48,12 @@ module "application_irsa" {
 
   name            = "ezl-app-server-dev-role"
   use_name_prefix = false
-  
+
   policies = {
-      secretmanager_access = "arn:aws:iam::aws:policy/AWSSecretsManagerClientReadOnlyAccess"
-      s3_full_access  = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-      ssm_full_access = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
-      sqs_full_access = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+    secretmanager_access = "arn:aws:iam::aws:policy/AWSSecretsManagerClientReadOnlyAccess"
+    s3_full_access       = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+    ssm_full_access      = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
+    sqs_full_access      = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
   }
   oidc_providers = {
     ezl-app-server = {

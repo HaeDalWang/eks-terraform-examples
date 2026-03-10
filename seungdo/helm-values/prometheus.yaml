@@ -1,0 +1,188 @@
+fullnameOverride: kube-prometheus
+prometheus:
+  prometheusSpec:
+    externalUrl: https://${prometheus_hostname}
+    externalLabels:
+      cluster: ${cluster_name}
+    # 압축은 Mimir에서 처리하므로 비활성화
+    disableCompaction: true
+    # 6시간 동안 메트릭 보관
+    retention: 6h
+    resources:
+      requests:
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+  # ingress는 prometheusSpec 바깥 prometheus 레벨에 위치해야 함
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - ${prometheus_hostname}
+    # monitoring resource들의 Namespace 선택 기능을 비활성화하여 모든 네임스페이스에서 모니터링 데이터를 수집      
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    # Prometheus → Mimir Remote Write (메트릭 전송)
+    remoteWrite:
+    - url: http://mimir-gateway.monitoring.svc.cluster.local:80/api/v1/push
+    # Prometheus → Mimir Alertmanager (중앙 알림 허브)
+    # 각 클러스터 Prometheus가 로컬에서 룰 평가 후 alert을 중앙 Mimir Alertmanager로 전송
+    alerting:
+      alertmanagers:
+      # [mgmt 클러스터] Mimir Alertmanager가 같은 클러스터에 있는 경우
+      # cluster-internal DNS로 직접 접근
+      - namespace: monitoring
+        name: mimir-alertmanager
+        port: http-metrics
+        pathPrefix: /alertmanager
+      # [dev / stg 클러스터] Mimir Alertmanager가 다른 클러스터(mgmt)에 있는 경우
+      # cluster-internal DNS 사용 불가 → Mimir gateway의 외부 URL(Ingress)로 접근
+      # - staticConfigs:
+      #   - targets:
+      #     - mimir.sd.seungdobae.com    # mgmt 클러스터 Mimir gateway Ingress 주소
+      #   scheme: https
+      #   pathPrefix: /alertmanager
+      #   # basicAuth 설정 시 (mimir gateway에 nginx basicAuth 적용한 경우)
+      #   # basicAuth:
+      #   #   username:
+      #   #     name: mimir-basicauth
+      #   #     key: username
+      #   #   password:
+      #   #     name: mimir-basicauth
+      #   #     key: password
+alertmanager:
+  enabled: false
+
+grafana:
+  # PVC가 ReadWriteOnce → RollingUpdate 시 Multi-Attach 에러 발생
+  # Recreate: 구 파드 완전 종료 후 신규 파드 기동 (다운타임 수초 발생하나 PVC 충돌 없음)
+  deploymentStrategy:
+    type: Recreate
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClassName: gp3
+  adminPassword: ${grafana_admin_password}
+  resources:
+    limits:
+      cpu: 100m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - ${grafana_hostname}
+  serviceMonitor:
+    enabled: false
+  sidecar:
+    datasources:
+      defaultDatasourceEnabled: false
+  additionalDataSources:
+  - name: main
+    type: prometheus
+    url: http://mimir-gateway.monitoring.svc.cluster.local:80/prometheus
+    isDefault: true
+  # ref: http://docs.grafana.org/administration/provisioning/#dashboards
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'import-tf'
+        orgId: 1
+        folder: ''
+        type: file
+        # 대시보드 삭제 방지
+        disableDeletion: false
+        # 대시보드 수정 방지
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/import-tf
+  # ref: https://grafana.com/grafana/dashboards
+  # 키는 dashboardProviders의 name과 동일해야 함 (import-tf)
+  dashboards:
+    import-tf:
+      k8s-overview:
+        gnetId: 15661
+        revision: 2
+        datasource: main
+      mimir-overview:
+        gnetId: 17607
+        revision: 13
+        datasource: main
+# 노드 익스포터: 노드의 정보 메트릭을 수집하여 Prometheus에 전달
+prometheus-node-exporter:
+  priorityClassName: system-node-critical
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: eks.amazonaws.com/compute-type
+              operator: NotIn
+              values:
+                - fargate
+
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubelet:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+  operatingSystems:
+    darwin:
+      enabled: false
+# 기본 Prometheus Rule 설정
+# kube-prometheus-stack의 battle-tested 룰 그대로 활용
+# Prometheus가 로컬에서 평가 → Mimir Alertmanager로 alert 전송
+defaultRules:
+  create: true
+  rules:
+    alertmanager: false      # Mimir Alertmanager 사용
+    etcd: false              # EKS managed → 접근 불가
+    configReloaders: false
+    general: false
+    k8s: true
+    kubeApiserverAvailability: false
+    kubeApiserverBurnrate: false
+    kubeApiserverHistogram: false
+    kubeApiserverSlos: false
+    kubeControllerManager: false
+    kubelet: false
+    kubeProxy: false
+    kubePrometheusGeneral: false
+    kubePrometheusNodeRecording: false
+    kubernetesApps: true
+    kubernetesResources: false
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: false
+    kubeStateMetrics: false
+    network: false
+    node: true
+    nodeExporterAlerting: false
+    nodeExporterRecording: false
+    prometheus: false
+    prometheusOperator: false

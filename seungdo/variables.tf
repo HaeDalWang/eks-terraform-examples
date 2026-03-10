@@ -52,3 +52,17 @@ variable "keda_chart_version" {
   description = "KEDA 차트 버전"
   type        = string
 }
+
+variable "fluent_bit_chart_version" {
+  description = "Fluent Bit 차트 버전"
+  type        = string
+}
+
+variable "mimir_chart_version" {
+  description = "Mimir 차트 버전"
+  type        = string
+}
+variable "kube_prometheus_stack_chart_version" {
+  description = "Kube Prometheus Stack 차트 버전"
+  type        = string
+}

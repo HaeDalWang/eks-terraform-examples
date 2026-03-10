@@ -128,7 +128,7 @@
 #       tag: "4.1.3-debian-12-r1"
 #     EOT
 #   ]
-  
+
 #   depends_on = [
 #     kubectl_manifest.karpenter_rmq_nodepool_1
 #   ]

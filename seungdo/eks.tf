@@ -346,10 +346,12 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
             name: "default"
             group: karpenter.k8s.aws
       limits:
-        cpu: 10
+        cpu: 14
+      # consolidateAfter 10s → 노드 삭제 직후 새 노드가 또 underutilized로 판단되어 무한 롤링
+      # 5m 이상 권장 (안정화 시간 확보)
       disruption:
-        consolidationPolicy: WhenEmptyOrUnderutilized 
-        consolidateAfter: 10s
+        consolidationPolicy: WhenEmptyOrUnderutilized
+        consolidateAfter: 5m
     YAML
 
   depends_on = [

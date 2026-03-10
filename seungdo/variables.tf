@@ -66,3 +66,8 @@ variable "kube_prometheus_stack_chart_version" {
   description = "Kube Prometheus Stack 차트 버전"
   type        = string
 }
+
+variable "loki_chart_version" {
+  description = "Grafana Loki 차트 버전"
+  type        = string
+}

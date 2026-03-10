@@ -93,6 +93,10 @@ grafana:
     type: prometheus
     url: http://mimir-gateway.monitoring.svc.cluster.local:80/prometheus
     isDefault: true
+  - name: loki
+    type: loki
+    url: http://loki-gateway.monitoring.svc.cluster.local:80
+    access: proxy
   # ref: http://docs.grafana.org/administration/provisioning/#dashboards
   dashboardProviders:
     dashboardproviders.yaml:
@@ -120,6 +124,10 @@ grafana:
         gnetId: 17607
         revision: 13
         datasource: main
+      loki-app-logs:
+        gnetId: 13639
+        revision: 2
+        datasource: loki
 # 노드 익스포터: 노드의 정보 메트릭을 수집하여 Prometheus에 전달
 prometheus-node-exporter:
   priorityClassName: system-node-critical

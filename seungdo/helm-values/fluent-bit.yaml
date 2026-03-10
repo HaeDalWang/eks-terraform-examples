@@ -1,0 +1,54 @@
+# Fluent Bit → Loki 연동 (intgapp 네임스페이스 Pod 로그만 수집)
+# 경로 형식: /var/log/containers/<pod>_<namespace>_<container>-<id>.log
+# ref: https://docs.fluentbit.io/manual/pipeline/outputs/loki
+
+priorityClassName: system-node-critical
+logLevel: DEBUG
+
+config:
+  inputs: |
+    [INPUT]
+        Name                tail     
+        Tag                 kube.*
+        Path                /var/log/containers/*_intgapp_*.log
+        Mem_Buf_Limit       5MB
+        Skip_Long_Lines     On
+        Parser              cri
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     kube.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Labels              On
+        Annotations         Off
+
+outputs: |
+    [OUTPUT]
+        Name           loki
+        Match          *
+        Host           loki-gateway.monitoring.svc.cluster.local
+        Port           80
+        URI            /loki/api/v1/push
+        tenant_id      anonymous
+        Labels         job=fluent-bit
+        label_keys     $kubernetes.namespace_name,$kubernetes.pod_name,$kubernetes.container_name
+        line_format    key_value
+
+# Fargate 제외 (노드 로그 수집)
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: eks.amazonaws.com/compute-type
+              operator: NotIn
+              values:
+                - fargate

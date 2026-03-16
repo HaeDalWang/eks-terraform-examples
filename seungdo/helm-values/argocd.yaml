@@ -7,7 +7,7 @@ controller:
       memory: 256Mi
 server:
   ingress:
-    enabled: true
+    enabled: false
     ingressClassName: nginx
     # annotations:
     #   alb.ingress.kubernetes.io/scheme: internet-facing
@@ -18,14 +18,14 @@ server:
     #   alb.ingress.kubernetes.io/group.name: ${lb_group_name}
     #   alb.ingress.kubernetes.io/backend-protocol: "HTTP"
     #   alb.ingress.kubernetes.io/backend-protocol-version: "HTTP1"
-  # httproute:
-  #   enabled: true
-  #   hostnames:
-  #     - "${domain}"
-  #   parentRefs:
-  #     - name: cilium-gateway
-  #       namespace: default  # Gateway가 있는 namespace 명시
-  #       sectionName: http
+  httproute:
+    enabled: true
+    hostnames:
+      - "${domain}"
+    parentRefs:
+      - name: ${gateway_name}
+        namespace: ${gateway_namespace}
+        sectionName: https
 configs:
   secret:
     argocdServerAdminPassword: ${server_admin_password}

@@ -130,7 +130,9 @@ resource "aws_security_group_rule" "node_to_cluster_ingress" {
   description              = "Allow all traffic from node security group to cluster primary security group"
 }
 
-# Karpenter Controller에 부여할 신뢰관계 정책 
+# Karpenter Controller에 부여할 신뢰관계 정책
+# 참고: terraform-aws-modules/eks 또는 AWS provider 업그레이드 시, IAM 정책 JSON 키 순서 차이로
+# plan에 변경(역할/정책 in-place, role_policy_attachment replace)이 다시 나타날 수 있음.
 data "aws_iam_policy_document" "karpenter_controller_assume_role_policy" {
   statement {
     effect = "Allow"
@@ -346,7 +348,7 @@ resource "kubectl_manifest" "karpenter_default_nodepool" {
             name: "default"
             group: karpenter.k8s.aws
       limits:
-        cpu: 14
+        cpu: 16
       disruption:
         consolidationPolicy: WhenEmptyOrUnderutilized
         consolidateAfter: 15m

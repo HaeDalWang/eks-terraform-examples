@@ -52,7 +52,7 @@ minio:
   enabled: false
 
 singleBinary:
-  replicas: 3
+  replicas: 1
   persistence:
     enabled: true
     size: 20Gi

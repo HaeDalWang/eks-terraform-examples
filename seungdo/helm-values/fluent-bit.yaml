@@ -3,7 +3,7 @@
 # ref: https://docs.fluentbit.io/manual/pipeline/outputs/loki
 
 priorityClassName: system-node-critical
-logLevel: DEBUG
+logLevel: info
 
 config:
   inputs: |

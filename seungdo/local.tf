@@ -8,4 +8,10 @@ locals {
     "terraform" = "true"
     "project"   = local.project
   }
+
+  # Envoy NLB에 붙일 호스트명 (external-dns용). HTTPRoute 추가할 때 여기만 한 줄 추가하면 됨.
+  envoy_external_dns_hostnames = [
+    "argocd.${local.project_domain_name}",
+    "nge.${local.domain_name}"
+  ]
 }

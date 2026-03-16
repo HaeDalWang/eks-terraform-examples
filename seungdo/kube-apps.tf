@@ -24,38 +24,41 @@ resource "helm_release" "argocd" {
         data.aws_acm_certificate.existing.arn
       ]),
       lb_group_name = local.project
+      gateway_name = "default"
+      gateway_namespace = "${kubernetes_namespace.envoy_gateway.metadata[0].name}"
     })
   ]
 
   depends_on = [
-    helm_release.aws_load_balancer_controller
+    helm_release.aws_load_balancer_controller,
+    kubectl_manifest.envoy_gateway
   ]
 }
 
 
 # KEDA를 설치할 네임스페이스
-resource "kubernetes_namespace_v1" "keda" {
-  metadata {
-    name = "keda"
-  }
-}
+# resource "kubernetes_namespace_v1" "keda" {
+#   metadata {
+#     name = "keda"
+#   }
+# }
 
-# KEDA
-resource "helm_release" "keda" {
-  name       = "keda"
-  repository = "https://kedacore.github.io/charts"
-  chart      = "keda"
-  version    = var.keda_chart_version
-  namespace  = kubernetes_namespace_v1.keda.metadata[0].name
+# # KEDA
+# resource "helm_release" "keda" {
+#   name       = "keda"
+#   repository = "https://kedacore.github.io/charts"
+#   chart      = "keda"
+#   version    = var.keda_chart_version
+#   namespace  = kubernetes_namespace_v1.keda.metadata[0].name
 
-  # 기본값 설치
-  # values = [
-  # ]
+#   # 기본값 설치
+#   # values = [
+#   # ]
 
-  depends_on = [
-    helm_release.karpenter
-  ]
-}
+#   depends_on = [
+#     helm_release.karpenter
+#   ]
+# }
 
 # # Kubescout를 설치할 네임스페이스
 # resource "kubernetes_namespace_v1" "kubescout" {

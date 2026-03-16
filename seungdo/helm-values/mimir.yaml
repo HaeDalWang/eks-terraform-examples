@@ -144,7 +144,7 @@ compactor:
 
 # Distributor (write path: 수신된 샘플을 ingester로 분배)
 distributor:
-  replicas: 2
+  replicas: 1
   resources:
     limits:
       memory: 1Gi
@@ -192,7 +192,7 @@ query_frontend:
 # Query Scheduler (쿼리 큐 관리)
 query_scheduler:
   enabled: true
-  replicas: 2
+  replicas: 1
 
 # Ruler (recording rule / alerting rule 평가)
 # 현재: Prometheus가 각 클러스터에서 룰 평가 → Ruler 미사용
@@ -216,9 +216,6 @@ store_gateway:
   resources:
     limits:
       memory: 1Gi
-    requests:
-      cpu: 200m
-      memory: 512Mi
     requests:
       cpu: 200m
       memory: 512Mi
@@ -293,4 +290,4 @@ results-cache:
 # ============================================================
 metaMonitoring:
   serviceMonitor:
-    enabled: false
+    enabled: true

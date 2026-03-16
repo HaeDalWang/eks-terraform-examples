@@ -146,13 +146,13 @@ kubeApiServer:
 kubeControllerManager:
   enabled: false
 coreDns:
-  enabled: false
+  enabled: true # EKS 관리형: CoreDNS는 Pod로 동작하므로 메트릭 수집 가능
 kubeEtcd:
   enabled: false
 kubeScheduler:
   enabled: false
 kubeProxy:
-  enabled: false
+  enabled: true # EKS 관리형: kube-proxy는 DaemonSet으로 동작하므로 메트릭 수집 가능
 kubelet:
   enabled: true
 kubeStateMetrics:
@@ -168,29 +168,29 @@ nodeExporter:
 defaultRules:
   create: true
   rules:
-    alertmanager: false      # Mimir Alertmanager 사용
-    etcd: false              # EKS managed → 접근 불가
+    alertmanager: false
+    etcd: false
     configReloaders: false
-    general: false
+    general: true
     k8s: true
     kubeApiserverAvailability: false
     kubeApiserverBurnrate: false
     kubeApiserverHistogram: false
     kubeApiserverSlos: false
     kubeControllerManager: false
-    kubelet: false
-    kubeProxy: false
-    kubePrometheusGeneral: false
-    kubePrometheusNodeRecording: false
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
     kubernetesApps: true
-    kubernetesResources: false
+    kubernetesResources: true
     kubernetesStorage: true
     kubernetesSystem: true
     kubeScheduler: false
-    kubeStateMetrics: false
-    network: false
+    kubeStateMetrics: true
+    network: true
     node: true
-    nodeExporterAlerting: false
-    nodeExporterRecording: false
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
     prometheus: false
     prometheusOperator: false

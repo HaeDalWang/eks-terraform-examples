@@ -55,7 +55,6 @@ resource "kubectl_manifest" "envoy_proxy" {
 ])}
               service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
               service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
-              external-dns.alpha.kubernetes.io/hostname: "${"argocd.${local.project_domain_name},nge.${local.domain_name}"}"
   YAML
 
 depends_on = [

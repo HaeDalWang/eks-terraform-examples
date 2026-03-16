@@ -547,11 +547,14 @@ resource "helm_release" "external_dns" {
     sources:
       - service
       - ingress
+      - gateway-httproute
     extraArgs:
       - --annotation-filter=external-dns.alpha.kubernetes.io/exclude notin (true)
     env:
       - name: AWS_REGION
         value: ${data.aws_region.current.id}
+    rbac:
+      create: true
     EOT
   ]
 

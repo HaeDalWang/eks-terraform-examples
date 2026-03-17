@@ -22,11 +22,13 @@
 
 | 폴더명 | 설명 | 마지막 수정일 |
 |--------|------|----------------|
-| `seungdo/` | 개인 실환경/PoC용 **EKS + Karpenter + Observability (Mimir/Loki/Prometheus/Grafana) + ArgoCD + Envoy Gateway** 통합 예제 | **2026-03-16** |
+| `seungdo/` | 개인 실환경/PoC용 **EKS + Karpenter + 여러가지 | **2026-03-16** |
 | `envoy-gateway-nlb-integration/` | Envoy Gateway + **AWS NLB(TLS termination)** + **ExternalDNS + Gateway API(HTTPRoute)** 최소 예제 (샘플 nginx 앱/HTTPRoute 포함) | **2026-03-16** |
 | `cilium-cni/` | Cilium CNI + Gateway API (Envoy/Cilium/Traefik 조합) 실험용 예제. 네트워크 정책·IngressRoute·HTTPRoute 패턴 포함 | **2026-01-01** |
-| `mlops/` | ML 워크로드용 EKS + RDS, Linkerd, Prometheus, OpenSearch, Fluent Bit 등 **MLOps 파이프라인/관측** 관련 예제 | **2025-10-22** |
+| `mlops/` | ML 워크로드용 아직 미완성임 **MLOps 파이프라인/관측** 관련 예제 | **2025-10-22** |
 | `scripts/` | Downtime 테스트 및 유틸리티 쉘 스크립트 모음 | (git log 기준으로 필요 시 업데이트) |
+| `customer/` | 고객 특정케이스 마다 임시작성에 사용한 tf파일들 | (git log 기준으로 필요 시 업데이트) |
+
 
 > **주의**  
 > 위 “마지막 수정일”은 `git log -1 -- <폴더>` 기준입니다.  

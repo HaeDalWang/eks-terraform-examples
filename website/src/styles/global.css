@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body;
+  }
+
+  ::selection {
+    @apply bg-primary/30;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-container-lowest;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-container-highest rounded-full;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: rgba(45, 52, 73, 0.7);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Markdown 렌더링 스타일 */
+  .prose-slate h1 {
+    @apply text-3xl font-extrabold text-on-surface tracking-tight mb-4 mt-8;
+  }
+  .prose-slate h2 {
+    @apply text-2xl font-bold text-on-surface mb-4 mt-8 flex items-center gap-3;
+  }
+  .prose-slate h3 {
+    @apply text-lg font-bold text-on-surface mb-3 mt-6;
+  }
+  .prose-slate p {
+    @apply text-slate-400 leading-relaxed mb-4;
+  }
+  .prose-slate ul {
+    @apply space-y-1 mb-4 text-slate-400;
+  }
+  .prose-slate li {
+    @apply pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-primary;
+  }
+  .prose-slate code {
+    @apply font-mono text-tertiary bg-surface-container-lowest px-1.5 py-0.5 rounded text-sm;
+  }
+  .prose-slate pre {
+    @apply bg-surface-container-lowest p-6 rounded-xl font-mono text-sm leading-relaxed mb-6 overflow-x-auto border-l-4 border-primary/30;
+  }
+  .prose-slate pre code {
+    @apply bg-transparent p-0 text-slate-300;
+  }
+  .prose-slate table {
+    @apply w-full mb-6 text-sm;
+  }
+  .prose-slate th {
+    @apply text-left py-3 px-4 bg-surface-container-high text-primary font-bold uppercase text-xs tracking-widest;
+  }
+  .prose-slate td {
+    @apply py-3 px-4 text-slate-400 border-b border-surface-container-high/50;
+  }
+  .prose-slate blockquote {
+    @apply border-l-4 border-tertiary pl-4 italic text-slate-500 mb-4;
+  }
+  .prose-slate a {
+    @apply text-primary hover:underline;
+  }
+  .prose-slate strong {
+    @apply text-on-surface font-bold;
+  }
+}

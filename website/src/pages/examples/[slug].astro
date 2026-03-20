@@ -1,0 +1,179 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import examples from '../../data/examples.json';
+import fs from 'node:fs';
+import path from 'node:path';
+import { marked } from 'marked';
+
+export function getStaticPaths() {
+  return examples.map((ex: any) => ({
+    params: { slug: ex.slug },
+    props: { example: ex },
+  }));
+}
+
+const { example } = Astro.props;
+
+// README.md 읽기
+const readmePath = path.resolve(process.cwd(), '..', example.slug, 'README.md');
+let readmeHtml = '';
+let readmeRaw = '';
+
+if (fs.existsSync(readmePath)) {
+  readmeRaw = fs.readFileSync(readmePath, 'utf-8');
+  // 첫 번째 h1 제거 (페이지 타이틀과 중복)
+  const withoutTitle = readmeRaw.replace(/^#\s+.+\n/, '');
+  readmeHtml = await marked(withoutTitle);
+}
+
+// 디렉토리 트리 생성
+function buildTree(dirPath: string, prefix = ''): { name: string; isDir: boolean; children?: any[] }[] {
+  if (!fs.existsSync(dirPath)) return [];
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules' && e.name !== '.terraform')
+    .sort((a, b) => {
+      // 디렉토리 먼저
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  return entries.map(e => {
+    const fullPath = path.join(dirPath, e.name);
+    if (e.isDirectory()) {
+      return { name: e.name, isDir: true, children: buildTree(fullPath) };
+    }
+    return { name: e.name, isDir: false };
+  });
+}
+
+const exampleDir = path.resolve(process.cwd(), '..', example.slug);
+const tree = buildTree(exampleDir);
+
+// 메인 .tf 파일 중 하나 읽기 (코드 미리보기)
+function findMainTf(dirPath: string): string | null {
+  const candidates = ['eks.tf', 'main.tf', 'istio.tf', 'observability.tf', 'envoy-gateway.tf'];
+  for (const dir of ['', ...example.subDirs]) {
+    for (const name of candidates) {
+      const p = path.join(dirPath, dir, name);
+      if (fs.existsSync(p)) return p;
+    }
+  }
+  return null;
+}
+
+const mainTfPath = findMainTf(exampleDir);
+let codePreview = '';
+let codeFileName = '';
+if (mainTfPath) {
+  codePreview = fs.readFileSync(mainTfPath, 'utf-8').slice(0, 2000);
+  codeFileName = path.relative(exampleDir, mainTfPath);
+}
+
+const breadcrumb = [
+  { label: '라이브러리', href: '/' },
+  { label: example.category },
+  { label: example.title },
+];
+---
+
+<Layout title={example.title} breadcrumb={breadcrumb}>
+  <div class="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
+
+    <!-- Left: Documentation (60%) -->
+    <section class="w-full lg:w-[60%] p-8 lg:p-12 overflow-y-auto">
+      <div class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-mono uppercase tracking-widest">
+              <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+              {example.category}
+            </span>
+            {example.isMultiCluster && (
+              <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary/10 text-tertiary text-[10px] font-mono uppercase tracking-widest">
+                멀티 클러스터
+              </span>
+            )}
+          </div>
+          <h1 class="text-4xl lg:text-5xl font-extrabold text-on-surface tracking-tight mb-4">
+            {example.title}
+          </h1>
+          <p class="text-xl text-slate-400 leading-relaxed">
+            {example.description}
+          </p>
+        </header>
+
+        <!-- Metadata Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10">
+          <div class="p-4 rounded-lg bg-surface-container-low">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1 font-mono">파일 수</p>
+            <p class="text-2xl font-black text-primary">{example.fileCount}</p>
+          </div>
+          <div class="p-4 rounded-lg bg-surface-container-low">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1 font-mono">구조</p>
+            <p class="text-2xl font-black text-secondary">{example.subDirs.length > 0 ? example.subDirs.join(' + ') : '단일'}</p>
+          </div>
+          <div class="p-4 rounded-lg bg-surface-container-low">
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1 font-mono">카테고리</p>
+            <p class="text-lg font-bold text-tertiary">{example.category}</p>
+          </div>
+        </div>
+
+        <!-- README Content -->
+        <article class="prose-slate" set:html={readmeHtml} />
+      </div>
+    </section>
+
+    <!-- Right: Code + File Tree (40%) -->
+    <section class="w-full lg:w-[40%] bg-surface-container-lowest flex flex-col border-l border-outline-variant/10">
+
+      <!-- File Tree -->
+      <div class="p-6 border-b border-outline-variant/10">
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">디렉토리 구조</h3>
+        <div class="font-mono text-sm space-y-0.5 max-h-64 overflow-y-auto">
+          {tree.map(node => (
+            <div>
+              <div class="flex items-center gap-2 py-1 px-2 rounded hover:bg-surface-container-high/50 transition-colors cursor-default">
+                <span class="material-symbols-outlined text-[16px] text-slate-500">
+                  {node.isDir ? 'folder' : 'description'}
+                </span>
+                <span class={node.isDir ? 'text-primary font-medium' : 'text-slate-400'}>
+                  {node.name}{node.isDir ? '/' : ''}
+                </span>
+              </div>
+              {node.isDir && node.children && node.children.map((child: any) => (
+                <div class="flex items-center gap-2 py-1 px-2 pl-8 rounded hover:bg-surface-container-high/50 transition-colors cursor-default">
+                  <span class="material-symbols-outlined text-[16px] text-slate-600">
+                    {child.isDir ? 'folder' : 'description'}
+                  </span>
+                  <span class={child.isDir ? 'text-primary/70 text-xs' : 'text-slate-500 text-xs'}>
+                    {child.name}{child.isDir ? '/' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Code Preview -->
+      {codePreview && (
+        <div class="flex-1 flex flex-col">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10 bg-[#060e20]">
+            <div class="flex items-center gap-3">
+              <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40"></div>
+                <div class="w-3 h-3 rounded-full bg-amber-500/20 border border-amber-500/40"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/40"></div>
+              </div>
+              <span class="text-xs font-mono text-slate-500 ml-2">{codeFileName}</span>
+            </div>
+          </div>
+          <div class="flex-grow p-6 font-mono text-xs overflow-auto selection:bg-secondary/20 leading-relaxed">
+            <pre class="text-slate-400 whitespace-pre-wrap">{codePreview}</pre>
+          </div>
+        </div>
+      )}
+    </section>
+  </div>
+</Layout>

@@ -1,0 +1,98 @@
+---
+import Layout from '../layouts/Layout.astro';
+import examples from '../data/examples.json';
+
+// 카테고리별 아이콘 색상 매핑
+const colorMap: Record<string, string> = {
+  primary: 'from-primary',
+  secondary: 'from-secondary',
+  tertiary: 'from-tertiary',
+};
+
+const difficultyLabel = (isMulti: boolean) =>
+  isMulti ? { text: '멀티 클러스터', color: 'text-tertiary' } : { text: '단일 클러스터', color: 'text-primary' };
+---
+
+<Layout title="아키텍처 라이브러리" breadcrumb={[{ label: '라이브러리' }]}>
+  <div class="px-10 py-10">
+    <!-- Hero -->
+    <section class="mb-12">
+      <h2 class="text-4xl font-black tracking-tight text-on-surface mb-2">
+        아키텍처 <span class="text-primary">라이브러리</span>
+      </h2>
+      <p class="text-slate-400 text-lg max-w-2xl mb-6">
+        검증된 프로덕션 EKS Terraform 템플릿 모음. 멀티 어카운트 멀티 클러스터 환경에 바로 적용 가능합니다.
+      </p>
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 bg-surface-container-high rounded-full text-[10px] font-mono font-bold tracking-widest text-secondary flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+          라이브 저장소
+        </span>
+        <span class="text-slate-500 text-xs">{examples.length}개의 활성 인프라 패턴</span>
+      </div>
+    </section>
+
+    <!-- Card Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      {examples.map((ex: any) => {
+        const diff = difficultyLabel(ex.isMultiCluster);
+        const gradientFrom = colorMap[ex.color] || 'from-primary';
+
+        return (
+          <a
+            href={`/examples/${ex.slug}`}
+            class="group bg-surface-container-high rounded-xl overflow-hidden hover:bg-surface-container-highest hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col"
+          >
+            {/* Card Thumbnail */}
+            <div class="h-44 bg-surface-container-low relative overflow-hidden">
+              <div class={`absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${gradientFrom} via-transparent to-transparent`}></div>
+              {/* Icon */}
+              <div class="absolute inset-0 flex items-center justify-center">
+                <span
+                  class="material-symbols-outlined text-6xl text-on-surface/10 group-hover:text-on-surface/20 transition-all duration-500 group-hover:scale-110"
+                  style="font-variation-settings: 'FILL' 1;"
+                >{ex.icon}</span>
+              </div>
+              {/* Badge */}
+              <div class="absolute top-4 left-4">
+                <span class={`px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest ${diff.color}`}>
+                  {diff.text}
+                </span>
+              </div>
+              {/* Category */}
+              <div class="absolute top-4 right-4">
+                <span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-slate-400">
+                  {ex.category}
+                </span>
+              </div>
+            </div>
+
+            {/* Card Body */}
+            <div class="p-6 flex-1 flex flex-col">
+              <h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">
+                {ex.title}
+              </h3>
+              <p class="text-slate-400 text-sm mb-6 line-clamp-2">
+                {ex.description}
+              </p>
+
+              {/* Footer */}
+              <div class="mt-auto flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  {ex.subDirs.length > 0 && ex.subDirs.slice(0, 3).map((dir: string) => (
+                    <span class="px-2 py-0.5 bg-surface-container-lowest rounded text-[10px] font-mono text-slate-500">
+                      {dir}/
+                    </span>
+                  ))}
+                </div>
+                <span class="text-[10px] font-mono text-slate-500 uppercase">
+                  {ex.fileCount} files
+                </span>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  </div>
+</Layout>

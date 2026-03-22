@@ -85,6 +85,11 @@ module "eks" {
       # IAM Role 생성 + 기본 EKS 노드 정책 부착 기본값임
       # create_iam_role            = true
       # iam_role_attach_cni_policy = true
+      # Karpenter 노드 역할(module.karpenter)과 달리 MNG 역할은 별도 리소스이므로,
+      # SSM·EBS 등은 여기서도 명시해야 콘솔의 *-eks-node-group-* 역할에 붙습니다.
+      iam_role_additional_policies = {
+        AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+      }
 
       # 시스템 워크로드만 스케줄되도록 테인트
       labels = {
@@ -185,6 +190,8 @@ module "karpenter" {
 
   # Karpenter가 생성할 노드에 부여할 역할에 기본 정책 이외에 추가할 IAM 정책
   node_iam_role_additional_policies = {
+    # aws-node(ipamd)가 기본으로 노드 인스턴스 프로파일 역할을 사용 — DescribeNetworkInterfaces 등 필요
+    AmazonEKS_CNI_Policy         = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
     AmazonEBSCSIDriverPolicy     = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   }
@@ -292,7 +299,7 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       - tags:
           karpenter.sh/discovery: ${module.eks.cluster_name}
       securityGroupSelectorTerms:
-      - id: ${module.eks.cluster_primary_security_group_id}
+      - id: ${module.eks.node_security_group_id}
       blockDeviceMappings:
       - deviceName: /dev/xvda
         ebs:

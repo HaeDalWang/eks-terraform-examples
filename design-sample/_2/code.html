@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CloudBlueprint | EKS 아키텍처 라이브러리</title>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;ri=AAAzDQAVY29tLm1pY3Jvc29mdC5lZGdlbWFjACNjb250cmlidXRpb24udXNlcmNvbnRlbnQuZ29vZ2xlLmNvbQ"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-fixed-dim": "#ffb786",
+              "on-secondary": "#003824",
+              "on-secondary-fixed-variant": "#005236",
+              "on-tertiary-fixed-variant": "#723600",
+              "inverse-on-surface": "#283044",
+              "tertiary-fixed": "#ffdcc6",
+              "secondary-fixed-dim": "#4edea3",
+              "error": "#ffb4ab",
+              "on-primary": "#002e6a",
+              "background": "#0b1326",
+              "on-tertiary-fixed": "#311400",
+              "surface-tint": "#adc6ff",
+              "on-tertiary": "#502400",
+              "surface-container-low": "#131b2e",
+              "surface-bright": "#31394d",
+              "tertiary-container": "#df7412",
+              "surface-container-highest": "#2d3449",
+              "on-surface-variant": "#c2c6d6",
+              "surface": "#0b1326",
+              "outline-variant": "#424754",
+              "on-secondary-container": "#00311f",
+              "primary": "#adc6ff",
+              "secondary": "#4edea3",
+              "tertiary": "#ffb786",
+              "primary-container": "#4d8eff",
+              "outline": "#8c909f",
+              "on-error": "#690005",
+              "inverse-primary": "#005ac2",
+              "on-primary-fixed-variant": "#004395",
+              "on-primary-fixed": "#001a42",
+              "surface-container-lowest": "#060e20",
+              "on-surface": "#dae2fd",
+              "surface-dim": "#0b1326",
+              "surface-variant": "#2d3449",
+              "secondary-container": "#00a572",
+              "on-secondary-fixed": "#002113",
+              "on-primary-container": "#00285d",
+              "surface-container-high": "#222a3d",
+              "on-error-container": "#ffdad6",
+              "surface-container": "#171f33",
+              "on-background": "#dae2fd",
+              "primary-fixed-dim": "#adc6ff",
+              "secondary-fixed": "#6ffbbe",
+              "inverse-surface": "#dae2fd",
+              "primary-fixed": "#d8e2ff",
+              "on-tertiary-container": "#461f00",
+              "error-container": "#93000a"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(45, 52, 73, 0.7);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- SideNavBar Component -->
+<aside class="fixed left-0 top-0 h-full z-40 bg-surface-container-lowest shadow-[4px_0_24px_rgba(6,14,32,0.6)] w-64 border-r-0 font-body text-sm tracking-wide">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-10">
+<div class="w-10 h-10 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-fixed" data-icon="hub">hub</span>
+</div>
+<div>
+<h1 class="text-xl font-black tracking-tighter text-primary">CloudBlueprint</h1>
+<p class="text-[10px] uppercase tracking-widest text-secondary font-mono">기술 쇼케이스</p>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 border-l-2 border-primary bg-surface-container-high text-primary font-semibold transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+                    네트워킹
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+                    보안
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="memory">memory</span>
+                    컴퓨팅
+                </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-100 hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="sync_alt">sync_alt</span>
+                    GitOps
+                </a>
+</nav>
+<div class="mt-12">
+<button class="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-transform active:scale-95">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    새 아키텍처
+                </button>
+</div>
+</div>
+<div class="absolute bottom-8 left-0 w-full px-6 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-slate-100 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                설정
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-400 hover:text-slate-100 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+                고객 지원
+            </a>
+</div>
+</aside>
+<!-- TopNavBar Component -->
+<header class="fixed top-0 right-0 left-64 z-30 h-16 flex items-center justify-between px-8 bg-surface-container-lowest/70 backdrop-blur-xl border-b-0">
+<div class="flex items-center gap-8 flex-1">
+<div class="relative w-96 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm text-on-surface focus:ring-1 focus:ring-primary/30 placeholder:text-slate-600" placeholder="아키텍처, 모듈, 템플릿 검색..." type="text"/>
+</div>
+<nav class="hidden lg:flex items-center gap-6 font-medium text-sm">
+<a class="text-primary border-b-2 border-primary pb-1" href="#">AWS 서비스</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">TF 버전</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">컴플라이언스</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">비용</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant/15 rounded text-sm font-semibold hover:bg-primary/5 transition-colors">
+                템플릿 배포
+            </button>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/30">
+<img alt="사용자 프로필" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtEb1--OieUnQFqDtYZhkm1JLKjvyqmteCkZWmdS4hIqOMEpSy2yBoJFEvqnxStcunZLkJn88rEVLjr34BdLzrCN5t_M6DZd-FyEi5CIWX_0aD5zC9Jiy_xiu_T_aOmQUPhgDu54tcBCnarqKM1CQebqEvLFSlWkZyXizXwwbV0VxP0QhLDTTA_JS1m0ncn3pM02a5VrLVHPxzjmm5EOUfUxGl0QCYrD50PyRcraaVju4CS8oHjxgjEe-6KM58vLZyVROdH81XS6U1"/>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 pb-20 px-10 min-h-screen">
+<!-- Filter Bar -->
+<section class="mb-10 flex flex-wrap items-end justify-between gap-6">
+<div class="space-y-4">
+<h2 class="text-4xl font-black tracking-tight text-on-surface">아키텍처 <span class="text-primary">라이브러리</span></h2>
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 bg-surface-container-high rounded-full text-[10px] font-mono font-bold tracking-widest text-secondary flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                        라이브 저장소
+                    </span>
+<span class="text-slate-500 text-xs">12개의 활성 인프라 패턴 표시 중</span>
+</div>
+</div>
+<div class="flex gap-3">
+<div class="flex items-center gap-2 bg-surface-container-high px-4 py-2 rounded-lg border border-outline-variant/10 cursor-pointer hover:border-primary/30 transition-all">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">AWS 서비스:</span>
+<span class="text-xs text-on-surface font-medium">다중 선택 (4)</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-high px-4 py-2 rounded-lg border border-outline-variant/10 cursor-pointer hover:border-primary/30 transition-all">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">TF 버전:</span>
+<span class="text-xs text-on-surface font-medium">1.5.x +</span>
+<span class="material-symbols-outlined text-sm" data-icon="expand_more">expand_more</span>
+</div>
+<button class="p-2 bg-surface-container-highest rounded-lg text-primary">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</section>
+<!-- Architecture Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Card 1: EKS Multi-AZ -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Highly complex AWS infrastructure diagram visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC454B1YC6S5w874ycS0ImG9yMnmNWS7olZgZmCnAh-2lL9X96PxtuDsKSgVDJFUGTsMqaBy6ZaOlgS609bKMV7suOXyVuCohwUBBaes1-3XrSXDld1nSXa-Rjs4P8_05O5hXSVug9RZmLcHvEH3u3Ux5peDoZrBEHsjDr46CNpTCdOR89rRuxSYXoK5N5w2chFLkuiVdsIbnja-_DJFExfFGzoGAtUdzOrwyrVZXPJdaazl27qkbhC8mXLbA__HPXelbJkPzahaWum"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-tertiary">심화</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">EKS 멀티 AZ 네트워킹</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">격리된 서브넷, 트랜짓 게이트웨이 통합 및 세밀한 NACL을 갖춘 엔터프라이즈급 VPC 설계입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="EKS">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="settings_input_component">settings_input_component</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="VPC">
+<span class="material-symbols-outlined text-xs text-secondary" data-icon="hub">hub</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="IAM">
+<span class="material-symbols-outlined text-xs text-tertiary" data-icon="admin_panel_settings">admin_panel_settings</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">v1.5.7 최적화됨</span>
+</div>
+</div>
+</div>
+<!-- Card 2: GitOps Flux -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-secondary via-transparent to-transparent"></div>
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Code structure and automated workflow visualization" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUvnr2Vy3s3xoHNJpULoNb4OddtJWCmpAUPkmmlJ-8LRsWsUHzm6qf7pxLKDbeYhc-Sk5XQieRYoiSb-_P5-Snst1gR5jFzKKeSGqVWXkrcNoRLBaY4fl-saXT6_rgj_IVqEI40ws4KFs5AFgvlhpXZbI3Hg7SLGWWgCH8wSajp-NcloO0Yw8S4ppqyWPKeDx3XCVJn_6c_u0HOqL0flTjJzSQCr6oC8mRnRQbc3INFEU4l_vOC04LVxOcYcUDJyFZ7q53Ohmlrg02"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-secondary">중급</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">Flux v2를 이용한 GitOps 전달</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">자동화된 EKS 애플리케이션 배포 및 구성을 위한 표준화된 조정 루프 아키텍처입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="Git">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="sync_alt">sync_alt</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="Helm">
+<span class="material-symbols-outlined text-xs text-secondary" data-icon="package_2">package_2</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">운영 준비 완료</span>
+</div>
+</div>
+</div>
+<!-- Card 3: Karpenter -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-tertiary via-transparent to-transparent"></div>
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Cybersecurity digital shield patterns" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeB6yvXIpWQEawNo8lgtp18lTI3KDXzWa3gm0_6h1LJ0a8QBtTNUYOTPO6oSCr0BeZMIVY0ewhp0EPzkZtIUs11ZQLYPwIc3LYx52sbi-_Zd0ETuBH6hSl1jpDmioLkVCCcYO5KjrRZbPFxKzjRwXIqBVCTj6SvObXGoZ0lhHKTIUegwWXyQB47za8TsabUkIJtIcJRx4yUOEfeXOJXaBds54IzkbsS_K8tdz60UsKDeoARfCx657YyeGukMKcGGidJVICVXpJ5mHq"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-tertiary">심화</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">Karpenter 비용 및 확장성</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">스팟 인스턴스 폴백 및 빈 패킹 정책을 사용한 Karpenter 기반의 고급 노드 프로비저닝입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="EC2">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="memory">memory</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center" title="CloudWatch">
+<span class="material-symbols-outlined text-xs text-tertiary" data-icon="monitoring">monitoring</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">비용 최적화됨</span>
+</div>
+</div>
+</div>
+<!-- Card 4: Serverless EKS -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Abstract server rack nodes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJnjf1qP7pMclJPa25P06IWNKLSNYYURIXgBZU1rZ7BFvTvrkWjftA8Rsow_6BC7FZExmjQk2Wf3irH6m6rLfWdbd5qftEUPo_hBT8nWpO62T1oc7O9kAJD42QeISW1MztZgY7bsOefLGTWsLtjvtG1oHWeUHHFyiR3O8Z667NtshjixV5jdKc3Q9_uxxNV6e2EVR8X6bLGgWb1Sxr5NydVd7eR9TAquIVgYvT5TT0XfXM2sgNFiRg77kAUnycSsk53FvNJb4tqVXH"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-primary">초급</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">Fargate를 사용한 서버리스 EKS</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">기본 노드 그룹을 관리하지 않고 AWS Fargate에 포드를 배포하기 위한 빠른 시작 가이드입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-secondary" data-icon="cloud_done">cloud_done</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">개발자 패스트 트랙</span>
+</div>
+</div>
+</div>
+<!-- Card 5: Service Mesh -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Data connections and network nodes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLAuMFhhiCRifzM2jDHTGQGHdet01GpUIRODOAtZ_C2CHxAJk_pLN96LMeeDiKRt-chzHjhO2E7sklWwVQIvgqiYlUEAUc0XIl5gDmy0b-6EYxouJQTjGR0L2ZZcZ4awOS_E0yELopqksKSsQOaPovZSIhxYnEgtmXTMKK-n3yW3jSkFgW92kSzbcZrRLE6n7uFM-YdGBJs_Dmk0SQcSZ6T0oaebniJa0yIEwMYTTJIcyps8oiVaQFFEgQIDfnw4r3pfZCF4VI0Z9g"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-secondary">중급</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">Istio Ambient Mesh 배포</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">프록시 오버헤드 없이 상호 TLS 및 가시성을 확보하기 위한 사이드카 없는 서비스 메시 구현입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="lan">lan</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-secondary" data-icon="visibility">visibility</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">베타 패턴</span>
+</div>
+</div>
+</div>
+<!-- Card 6: Multi-Region -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden shadow-sm hover:bg-surface-container-highest hover:shadow-xl transition-all duration-300 flex flex-col">
+<div class="h-48 bg-surface-container-low relative overflow-hidden">
+<img class="w-full h-full object-cover mix-blend-luminosity group-hover:mix-blend-normal transition-all duration-500 opacity-60" data-alt="Global connectivity and earth digital map" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcg563H_gB61wLHcZCnL_wXQI4dY6db9ZpgWFoh7u-w0S7WDSfWAyBFMgwxYpLHLGkxdjKJYJMIG8ejWblKO0Mxmth8MoXzGtszF3NNz0W7jkzvyUS3CqEvaDM9D9Lxe5TCKIOooXk5cCY0R1VPT11UlHhe8LmYjtkH96kuozcet4nb9CD5rqiUq8n7U9Ihap2FNJhfgPYqpIZaO7ir5z3nHA0M85D_f-n2deoC3fsydqw9azWz-Eo0jrkLpCasZLkeZzBXT1DEewt"/>
+<div class="absolute top-4 left-4">
+<span class="px-2 py-1 bg-surface-container-lowest/80 backdrop-blur rounded text-[10px] font-mono font-bold tracking-widest text-tertiary">심화</span>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col">
+<h3 class="text-lg font-bold text-on-surface leading-tight mb-2 group-hover:text-primary transition-colors">글로벌 멀티 리전 EKS 제어</h3>
+<p class="text-slate-400 text-sm mb-6 line-clamp-2">Global Accelerator를 통해 us-east-1과 eu-west-1을 아우르는 재해 복구 아키텍처입니다.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-primary" data-icon="public">public</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-lowest border-2 border-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-xs text-secondary" data-icon="backup">backup</span>
+</div>
+</div>
+<span class="text-[10px] font-mono text-slate-500 uppercase">고가용성</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating FAB -->
+<button class="fixed bottom-10 right-10 w-16 h-16 bg-primary rounded-full shadow-2xl flex items-center justify-center text-on-primary group hover:scale-110 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-3xl" data-icon="auto_awesome">auto_awesome</span>
+<div class="absolute right-full mr-4 bg-surface-container-highest px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-outline-variant/20 shadow-xl">
+                AI 아키텍처 어시스턴트
+            </div>
+</button>
+</main>
+<!-- Footer Component -->
+<footer class="absolute bottom-0 right-0 left-64 flex justify-between items-center px-8 py-6 bg-surface-container-lowest border-t border-surface-container-high/50 font-mono text-[10px] uppercase tracking-widest">
+<div class="text-secondary font-bold">
+            © 2024 CloudBlueprint 인프라 패턴
+        </div>
+<div class="flex items-center gap-6">
+<a class="text-slate-500 hover:text-slate-300 transition-all" href="#">문서</a>
+<a class="text-slate-500 hover:text-slate-300 transition-all" href="#">GitHub 저장소</a>
+<a class="text-slate-500 hover:text-slate-300 transition-all" href="#">API 레퍼런스</a>
+<a class="text-slate-500 hover:text-slate-300 transition-all flex items-center gap-2" href="#">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                상태
+            </a>
+</div>
+</footer>
+</body></html>

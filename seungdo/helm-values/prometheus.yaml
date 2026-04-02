@@ -1,5 +1,22 @@
 fullnameOverride: kube-prometheus
 prometheus:
+  # ingress:
+  #   enabled: true
+  #   ingressClassName: nginx
+  #   hosts:
+  route:
+    main:
+      enabled: true
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      # annotations: {}
+      # labels: {}
+      hostnames:
+      - ${prometheus_hostname}
+      parentRefs:
+      - name: default
+        namespace: envoy-gateway-system
+        sectionName: https
   prometheusSpec:
     externalUrl: https://${prometheus_hostname}
     externalLabels:
@@ -20,12 +37,6 @@ prometheus:
           resources:
             requests:
               storage: 20Gi
-  # ingress는 prometheusSpec 바깥 prometheus 레벨에 위치해야 함
-  ingress:
-    enabled: true
-    ingressClassName: nginx
-    hosts:
-    - ${prometheus_hostname}
     # monitoring resource들의 Namespace 선택 기능을 비활성화하여 모든 네임스페이스에서 모니터링 데이터를 수집      
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
@@ -58,31 +69,42 @@ prometheus:
       #   #   password:
       #   #     name: mimir-basicauth
       #   #     key: password
+
 alertmanager:
   enabled: false
 
 grafana:
-  # PVC가 ReadWriteOnce → RollingUpdate 시 Multi-Attach 에러 발생
+  # ingress:
+  #   enabled: true
+  #   ingressClassName: nginx
+  #   hosts:
+  #   - ${grafana_hostname}
+  route:
+    main:
+      enabled: true
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      hostnames:
+      - ${grafana_hostname}
+      parentRefs:
+      - name: default
+        namespace: envoy-gateway-system
+        sectionName: https
   # Recreate: 구 파드 완전 종료 후 신규 파드 기동 (다운타임 수초 발생하나 PVC 충돌 없음)
   deploymentStrategy:
     type: Recreate
   persistence:
     enabled: true
-    size: 20Gi
+    size: 8Gi
     storageClassName: gp3
   adminPassword: ${grafana_admin_password}
   resources:
     limits:
-      cpu: 100m
+      cpu: 300m
       memory: 512Mi
     requests:
       cpu: 100m
       memory: 256Mi
-  ingress:
-    enabled: true
-    ingressClassName: nginx
-    hosts:
-    - ${grafana_hostname}
   serviceMonitor:
     enabled: false
   sidecar:
@@ -116,6 +138,11 @@ grafana:
   # 키는 dashboardProviders의 name과 동일해야 함 (import-tf)
   dashboards:
     import-tf:
+      # https://grafana.com/grafana/dashboards/24626-strimzi-kafka-dashboard-with-jvm-metrics/
+      kafka-overview:
+        gnetId: 24626
+        revision: 1
+        datasource: main
       k8s-overview:
         gnetId: 15661
         revision: 2
@@ -146,13 +173,13 @@ kubeApiServer:
 kubeControllerManager:
   enabled: false
 coreDns:
-  enabled: true # EKS 관리형: CoreDNS는 Pod로 동작하므로 메트릭 수집 가능
+  enabled: false # EKS 관리형: CoreDNS는 Pod로 동작하므로 메트릭 수집 가능
 kubeEtcd:
   enabled: false
 kubeScheduler:
   enabled: false
 kubeProxy:
-  enabled: true # EKS 관리형: kube-proxy는 DaemonSet으로 동작하므로 메트릭 수집 가능
+  enabled: false # EKS 관리형: kube-proxy는 DaemonSet으로 동작하므로 메트릭 수집 가능
 kubelet:
   enabled: true
 kubeStateMetrics:
@@ -171,26 +198,26 @@ defaultRules:
     alertmanager: false
     etcd: false
     configReloaders: false
-    general: true
+    general: false
     k8s: true
     kubeApiserverAvailability: false
     kubeApiserverBurnrate: false
     kubeApiserverHistogram: false
     kubeApiserverSlos: false
     kubeControllerManager: false
-    kubelet: true
-    kubeProxy: true
-    kubePrometheusGeneral: true
-    kubePrometheusNodeRecording: true
+    kubelet: false
+    kubeProxy: false
+    kubePrometheusGeneral: false
+    kubePrometheusNodeRecording: false
     kubernetesApps: true
-    kubernetesResources: true
+    kubernetesResources: false
     kubernetesStorage: true
     kubernetesSystem: true
     kubeScheduler: false
-    kubeStateMetrics: true
-    network: true
+    kubeStateMetrics: false
+    network: false
     node: true
-    nodeExporterAlerting: true
-    nodeExporterRecording: true
+    nodeExporterAlerting: false
+    nodeExporterRecording: false
     prometheus: false
     prometheusOperator: false

@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: strimzi-kafka
+  namespace: ${monitoring_namespace}
+  labels:
+    app.kubernetes.io/name: strimzi-kafka
+spec:
+  namespaceSelector:
+    matchNames:
+      - ${kafka_namespace}
+  selector:
+    matchLabels:
+      strimzi.io/name: sample-cluster-kafka
+  podMetricsEndpoints:
+    - path: /metrics
+      port: tcp-prometheus
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: strimzi-kafka-exporter
+  namespace: ${monitoring_namespace}
+  labels:
+    app.kubernetes.io/name: strimzi-kafka-exporter
+spec:
+  namespaceSelector:
+    matchNames:
+      - ${kafka_namespace}
+  selector:
+    matchLabels:
+      strimzi.io/name: sample-cluster-kafka-exporter
+  podMetricsEndpoints:
+    - path: /metrics
+      port: tcp-prometheus

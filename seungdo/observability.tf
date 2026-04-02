@@ -6,12 +6,12 @@
 #   slack_channel = "noti-alertmanager"
 # }
 
-# # Monitoring 스택을 설치할 네임스페이스
-# resource "kubernetes_namespace_v1" "monitoring" {
-#   metadata {
-#     name = "monitoring"
-#   }
-# }
+# Monitoring 스택을 설치할 네임스페이스
+resource "kubernetes_namespace_v1" "monitoring" {
+  metadata {
+    name = "monitoring"
+  }
+}
 
 # # Mimir + Loki 공용 버킷 (Mimir: blocks/, alertmanager/, ruler/ | Loki: loki/ prefix)
 # resource "aws_s3_bucket" "mimir" {
@@ -101,7 +101,7 @@
 #       # slack_webhook_url                 = jsondecode(data.aws_secretsmanager_secret_version.auth.secret_string)["slack"]["webhook_url"]
 #       # alertmanager_password_secret_name = kubernetes_secret.alertmanager.metadata[0].name
 
-# # Kube-prometheus-stack
+# Kube-prometheus-stack
 # resource "helm_release" "prometheus" {
 #   name       = "prometheus"
 #   repository = "https://prometheus-community.github.io/helm-charts"
@@ -118,7 +118,8 @@
 #     })
 #   ]
 #   depends_on = [
-#     helm_release.ingress_nginx
+#     # helm_release.ingress_nginx
+#     kubectl_manifest.envoy_gateway
 #   ]
 # }
 

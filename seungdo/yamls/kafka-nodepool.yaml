@@ -1,0 +1,28 @@
+# 테스트용: 브로커 Pod CPU/메모리 요청·상한 축소, gp3 8Gi (프로덕션에서는 디스크·메모리 여유 필요)
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  namespace: ${namespace}
+  labels:
+    strimzi.io/cluster: sample-cluster
+spec:
+  replicas: 3
+  roles:
+    - controller
+    - broker
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 8Gi
+        class: gp3
+        kraftMetadata: shared

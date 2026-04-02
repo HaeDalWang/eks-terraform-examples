@@ -37,28 +37,28 @@ resource "helm_release" "argocd" {
 
 
 # KEDA를 설치할 네임스페이스
-# resource "kubernetes_namespace_v1" "keda" {
-#   metadata {
-#     name = "keda"
-#   }
-# }
+resource "kubernetes_namespace_v1" "keda" {
+  metadata {
+    name = "keda"
+  }
+}
 
-# # KEDA
-# resource "helm_release" "keda" {
-#   name       = "keda"
-#   repository = "https://kedacore.github.io/charts"
-#   chart      = "keda"
-#   version    = var.keda_chart_version
-#   namespace  = kubernetes_namespace_v1.keda.metadata[0].name
+# KEDA
+resource "helm_release" "keda" {
+  name       = "keda"
+  repository = "https://kedacore.github.io/charts"
+  chart      = "keda"
+  version    = var.keda_chart_version
+  namespace  = kubernetes_namespace_v1.keda.metadata[0].name
 
-#   # 기본값 설치
-#   # values = [
-#   # ]
+  # 기본값 설치
+  # values = [
+  # ]
 
-#   depends_on = [
-#     helm_release.karpenter
-#   ]
-# }
+  depends_on = [
+    helm_release.karpenter
+  ]
+}
 
 # # Kubescout를 설치할 네임스페이스
 # resource "kubernetes_namespace_v1" "kubescout" {

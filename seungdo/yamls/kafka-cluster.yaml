@@ -1,0 +1,38 @@
+# https://github.com/strimzi/strimzi-kafka-operator/tree/0.51.0/examples/
+# 예제 중 듀얼 Role 예제를 채택 상황에 따라 변경
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: sample-cluster
+  namespace: ${namespace}
+spec:
+  kafka:
+    version: 4.2.0
+    metadataVersion: 4.2-IV1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      default.replication.factor: 3
+      min.insync.replicas: 2
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics
+          key: kafka-metrics-config.yml
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+  kafkaExporter:
+    topicRegex: ".*"
+    groupRegex: ".*"

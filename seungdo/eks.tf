@@ -82,6 +82,13 @@ module "eks" {
       min_size                       = 2
       max_size                       = 2
 
+      # IMDSv2 optional + 메타데이터 홉 2
+      metadata_options = {
+        http_endpoint               = "enabled"
+        http_tokens                 = "optional"
+        http_put_response_hop_limit = 2
+      }
+
       # IAM Role 생성 + 기본 EKS 노드 정책 부착 기본값임
       # create_iam_role            = true
       # iam_role_attach_cni_policy = true
@@ -114,26 +121,26 @@ module "eks" {
 # 직접 수정 시 모듈 업데이트나 AWS 변경 시 충돌 가능성이 있습니다.
 # 현재는 정상 동작하지만, 향후 EKS 모듈 업데이트 시 주의가 필요합니다.
 # 클러스터 보안 그룹 -> 노드 보안 그룹 (인그레스)
-resource "aws_security_group_rule" "cluster_to_node_ingress" {
-  type                     = "ingress"
-  from_port                = 0
-  to_port                  = 65535
-  protocol                 = "-1"
-  source_security_group_id = module.eks.cluster_primary_security_group_id
-  security_group_id        = module.eks.node_security_group_id
-  description              = "Allow all traffic from cluster primary security group to node security group"
-}
+# resource "aws_security_group_rule" "cluster_to_node_ingress" {
+#   type                     = "ingress"
+#   from_port                = 0
+#   to_port                  = 65535
+#   protocol                 = "-1"
+#   source_security_group_id = module.eks.cluster_primary_security_group_id
+#   security_group_id        = module.eks.node_security_group_id
+#   description              = "Allow all traffic from cluster primary security group to node security group"
+# }
 
-# 노드 보안 그룹 -> 클러스터 보안 그룹 (인그레스)
-resource "aws_security_group_rule" "node_to_cluster_ingress" {
-  type                     = "ingress"
-  from_port                = 0
-  to_port                  = 65535
-  protocol                 = "-1"
-  source_security_group_id = module.eks.node_security_group_id
-  security_group_id        = module.eks.cluster_primary_security_group_id
-  description              = "Allow all traffic from node security group to cluster primary security group"
-}
+# # 노드 보안 그룹 -> 클러스터 보안 그룹 (인그레스)
+# resource "aws_security_group_rule" "node_to_cluster_ingress" {
+#   type                     = "ingress"
+#   from_port                = 0
+#   to_port                  = 65535
+#   protocol                 = "-1"
+#   source_security_group_id = module.eks.node_security_group_id
+#   security_group_id        = module.eks.cluster_primary_security_group_id
+#   description              = "Allow all traffic from node security group to cluster primary security group"
+# }
 
 # Karpenter Controller에 부여할 신뢰관계 정책
 # 참고: terraform-aws-modules/eks 또는 AWS provider 업그레이드 시, IAM 정책 JSON 키 순서 차이로
@@ -160,6 +167,7 @@ data "aws_iam_policy_document" "karpenter_controller_assume_role_policy" {
     actions = ["sts:AssumeRoleWithWebIdentity"]
   }
 }
+
 # Karpenter를 배포할 네임 스페이스
 resource "kubernetes_namespace_v1" "karpenter" {
   metadata {
@@ -299,7 +307,8 @@ resource "kubectl_manifest" "karpenter_default_node_class" {
       - tags:
           karpenter.sh/discovery: ${module.eks.cluster_name}
       securityGroupSelectorTerms:
-      - id: ${module.eks.node_security_group_id}
+      - id: ${module.eks.cluster_primary_security_group_id}
+      # - id: ${module.eks.node_security_group_id}
       blockDeviceMappings:
       - deviceName: /dev/xvda
         ebs:

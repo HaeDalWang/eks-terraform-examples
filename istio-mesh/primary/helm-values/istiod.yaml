@@ -1,0 +1,38 @@
+# ref: https://istio.io/latest/docs/reference/config/istio.operator/
+# Multi-Primary on Different Networks 설정
+
+global:
+  meshID: ${mesh_id}
+  multiCluster:
+    clusterName: ${cluster_name}
+  network: ${network_name}
+
+meshConfig:
+  accessLogFile: /dev/stdout
+  accessLogEncoding: JSON
+  # 기본 프록시 설정
+  defaultConfig:
+    discoveryAddress: istiod.istio-system.svc:15012
+    # 트레이싱 (LGTM Tempo와 연동 시 활성화)
+    # tracing:
+    #   zipkin:
+    #     address: tempo-distributor.monitoring.svc.cluster.local:9411
+  # mTLS 기본 STRICT (모든 서비스 간 통신 암호화)
+  enableAutoMtls: true
+
+# Control Plane 리소스 (PoC 최소)
+pilot:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 3
+  # Gateway API 컨트롤러 활성화
+  env:
+    PILOT_ENABLE_GATEWAY_API: "true"
+    PILOT_ENABLE_GATEWAY_API_STATUS: "true"
+    PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: "true"

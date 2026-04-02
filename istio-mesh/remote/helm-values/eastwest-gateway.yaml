@@ -1,0 +1,38 @@
+# East-West Gateway (primary와 동일 구조, network_name만 다름)
+
+service:
+  type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+  ports:
+    - name: tls
+      port: 15443
+      targetPort: 15443
+    - name: istiod-grpc
+      port: 15012
+      targetPort: 15012
+    - name: istiod-webhook
+      port: 15017
+      targetPort: 15017
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+
+labels:
+  istio: eastwestgateway
+  topology.istio.io/network: ${network_name}
+
+env:
+  ISTIO_META_REQUESTED_NETWORK_VIEW: ${network_name}

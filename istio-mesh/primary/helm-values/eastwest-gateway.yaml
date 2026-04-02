@@ -1,0 +1,43 @@
+# Istio East-West Gateway (Cross-Cluster 트래픽)
+# internal NLB (VPC Peering / Transit Gateway를 통해 다른 클러스터와 통신)
+
+service:
+  type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal   # 내부 NLB
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+  ports:
+    # mTLS Auto-Passthrough (cross-cluster 서비스 트래픽)
+    - name: tls
+      port: 15443
+      targetPort: 15443
+    # Istiod webhook (remote 클러스터 → 이 클러스터 istiod)
+    - name: istiod-grpc
+      port: 15012
+      targetPort: 15012
+    # Istiod webhook validation
+    - name: istiod-webhook
+      port: 15017
+      targetPort: 15017
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+
+labels:
+  istio: eastwestgateway
+  topology.istio.io/network: ${network_name}
+
+env:
+  # East-West Gateway 전용 설정
+  ISTIO_META_REQUESTED_NETWORK_VIEW: ${network_name}

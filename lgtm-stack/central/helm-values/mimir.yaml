@@ -1,0 +1,198 @@
+# ref: https://grafana.com/docs/helm-charts/mimir-distributed/latest/
+# v6.0.x 기본은 Kafka ingest storage → classic 아키텍처로 전환
+
+minio:
+  enabled: false
+kafka:
+  enabled: false
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ${sa_arn}
+
+mimir:
+  structuredConfig:
+    # Classic 아키텍처 (Kafka OFF)
+    ingest_storage:
+      enabled: false
+    ingester:
+      push_grpc_method_enabled: true
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: s3.${aws_region}.amazonaws.com
+          region: ${aws_region}
+    # S3 경로 분리: mimir/blocks, mimir/alertmanager, mimir/ruler
+    blocks_storage:
+      storage_prefix: mimir/blocks
+      s3:
+        bucket_name: ${s3_bucket}
+    alertmanager_storage:
+      storage_prefix: mimir/alertmanager
+      s3:
+        bucket_name: ${s3_bucket}
+    ruler_storage:
+      storage_prefix: mimir/ruler
+      s3:
+        bucket_name: ${s3_bucket}
+    multitenancy_enabled: false
+    limits:
+      ingestion_rate: 10000
+      ingestion_burst_size: 200000
+      max_global_series_per_user: 300000
+      max_query_lookback: 0
+
+# ============================================================
+# 컴포넌트 리소스 (PoC 최소 구성)
+# 프로덕션에서는 small.yaml 기준으로 스케일업
+# ============================================================
+alertmanager:
+  enabled: true
+  replicas: 1
+  persistentVolume:
+    enabled: true
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  statefulSet:
+    enabled: true
+  zoneAwareReplication:
+    enabled: false
+  fallbackConfig: |
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['namespace', 'alertname', 'severity']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+      - matchers:
+        - alertname = "Watchdog"
+        receiver: 'null'
+      - matchers:
+        - severity = "critical"
+        receiver: 'null'   # TODO: slack receiver 교체
+        repeat_interval: 1h
+      - matchers:
+        - severity = "warning"
+        receiver: 'null'   # TODO: slack receiver 교체
+        repeat_interval: 4h
+    receivers:
+    - name: 'null'
+
+compactor:
+  persistentVolume:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# replication_factor 기본 3 → 3 replica 필수
+ingester:
+  replicas: 3
+  persistentVolume:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  topologySpreadConstraints: {}
+  affinity: {}
+  zoneAwareReplication:
+    enabled: false
+
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+query_frontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+query_scheduler:
+  enabled: true
+  replicas: 1
+
+ruler:
+  enabled: false
+
+# sharding_ring replication_factor 기본 3 → 3 replica 필수
+store_gateway:
+  replicas: 3
+  persistentVolume:
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  topologySpreadConstraints: {}
+  affinity: {}
+  zoneAwareReplication:
+    enabled: false
+
+gateway:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+  ingress:
+    enabled: false  # Envoy Gateway HTTPRoute로 노출
+
+overrides_exporter:
+  enabled: false
+
+# 캐시 (PoC: 각 1 replica)
+chunks-cache:
+  enabled: true
+  replicas: 1
+index-cache:
+  enabled: true
+  replicas: 1
+metadata-cache:
+  enabled: true
+  replicas: 1
+results-cache:
+  enabled: true
+  replicas: 1
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true

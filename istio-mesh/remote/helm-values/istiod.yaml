@@ -1,0 +1,29 @@
+# Multi-Primary on Different Networks (primary와 동일 구조)
+
+global:
+  meshID: ${mesh_id}
+  multiCluster:
+    clusterName: ${cluster_name}
+  network: ${network_name}
+
+meshConfig:
+  accessLogFile: /dev/stdout
+  accessLogEncoding: JSON
+  defaultConfig:
+    discoveryAddress: istiod.istio-system.svc:15012
+  enableAutoMtls: true
+
+pilot:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 3
+  env:
+    PILOT_ENABLE_GATEWAY_API: "true"
+    PILOT_ENABLE_GATEWAY_API_STATUS: "true"
+    PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: "true"

@@ -1,0 +1,116 @@
+# ref: https://grafana.com/docs/helm-charts/tempo-distributed/latest/
+
+serviceAccount:
+  create: true
+  name: tempo
+  annotations:
+    eks.amazonaws.com/role-arn: ${sa_arn}
+
+tempo:
+  # S3 경로: tempo/ prefix
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: ${s3_bucket}
+        endpoint: s3.${aws_region}.amazonaws.com
+        region: ${aws_region}
+      block:
+        version: vParquet4
+  # OTLP 수신 (gRPC 4317 + HTTP 4318)
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  # Metrics Generator: Tempo 트레이스 → Mimir로 RED 메트릭/Service Graph 전송
+  metrics_generator:
+    storage:
+      path: /var/tempo/wal
+      remote_write:
+      - url: http://mimir-gateway.monitoring.svc.cluster.local:80/api/v1/push
+        send_exemplars: true
+    processor:
+      service_graphs:
+        dimensions:
+        - service.namespace
+        - k8s.namespace.name
+      span_metrics:
+        dimensions:
+        - service.namespace
+        - k8s.namespace.name
+
+multitenancy_enabled: false
+
+compactor:
+  config:
+    compaction:
+      block_retention: 72h  # 3일 보관
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+distributor:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+ingester:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+querier:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+queryFrontend:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+metricsGenerator:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+gateway:
+  enabled: true
+  replicas: 1
+
+minio:
+  enabled: false
+
+metaMonitoring:
+  serviceMonitor:
+    enabled: true

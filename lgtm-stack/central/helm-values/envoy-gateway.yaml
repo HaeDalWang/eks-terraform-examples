@@ -1,0 +1,28 @@
+# ref: https://gateway.envoyproxy.io/docs/install/gateway-helm-api/
+podDisruptionBudget:
+  minAvailable: 1
+
+deployment:
+  envoyGateway:
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+
+service:
+  type: ClusterIP
+
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    logging:
+      level:
+        default: info

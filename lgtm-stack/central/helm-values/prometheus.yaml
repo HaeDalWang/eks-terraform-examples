@@ -1,0 +1,213 @@
+# ============================================================
+# kube-prometheus-stack (Central 클러스터)
+# ============================================================
+#
+# 배포: Prometheus, Grafana, node-exporter, kube-state-metrics, PrometheusRules
+# 미배포: Alertmanager (Mimir Alertmanager 사용)
+#
+
+fullnameOverride: kube-prometheus
+
+# ============================================================
+# Prometheus
+# ============================================================
+prometheus:
+  prometheusSpec:
+    externalLabels:
+      cluster: ${cluster_name}
+    disableCompaction: true       # Mimir에서 compaction 처리
+    retention: 6h                 # 로컬 보관 최소화 (장기 저장은 Mimir)
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+  # Ingress 비활성화 → Envoy Gateway HTTPRoute로 노출
+  ingress:
+    enabled: false
+  # 모든 네임스페이스에서 ServiceMonitor/PodMonitor/Rule 수집
+  serviceMonitorSelectorNilUsesHelmValues: false
+  podMonitorSelectorNilUsesHelmValues: false
+  ruleSelectorNilUsesHelmValues: false
+  # Prometheus → Mimir remote-write (cluster-internal)
+  remoteWrite:
+  - url: http://mimir-gateway.monitoring.svc.cluster.local:80/api/v1/push
+  # Alert → Mimir Alertmanager (cluster-internal)
+  alerting:
+    alertmanagers:
+    - namespace: monitoring
+      name: mimir-alertmanager
+      port: http-metrics
+      pathPrefix: /alertmanager
+
+# Alertmanager 비활성화 (Mimir Alertmanager 사용)
+alertmanager:
+  enabled: false
+
+# ============================================================
+# Grafana (Central 클러스터에서만 배포)
+# ============================================================
+grafana:
+  deploymentStrategy:
+    type: Recreate  # PVC ReadWriteOnce 충돌 방지
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: gp3
+  adminPassword: ${grafana_admin_password}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  # Ingress 비활성화 → Envoy Gateway HTTPRoute로 노출
+  ingress:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  sidecar:
+    datasources:
+      defaultDatasourceEnabled: false
+  # LGTM Datasource 통합 설정 (상호 연동)
+  additionalDataSources:
+  - name: Mimir
+    uid: mimir
+    type: prometheus
+    url: http://mimir-gateway.monitoring.svc.cluster.local:80/prometheus
+    isDefault: true
+  - name: Loki
+    uid: loki
+    type: loki
+    url: http://loki-gateway.monitoring.svc.cluster.local:80
+    access: proxy
+    jsonData:
+      # 로그 → 트레이스 연동: traceId 필드에서 Tempo로 이동
+      derivedFields:
+      - name: TraceID
+        matcherRegex: '"traceId":"(\w+)"'
+        url: "$${__value.raw}"
+        datasourceUid: tempo
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    url: http://tempo-query-frontend.monitoring.svc.cluster.local:3100
+    access: proxy
+    jsonData:
+      # 트레이스 → 로그 연동
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+      # 트레이스 → 메트릭 연동 (Service Graph)
+      tracesToMetrics:
+        datasourceUid: mimir
+      serviceMap:
+        datasourceUid: mimir
+      nodeGraph:
+        enabled: true
+  # 대시보드 프로비저닝
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'import-tf'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: false
+        options:
+          path: /var/lib/grafana/dashboards/import-tf
+  dashboards:
+    import-tf:
+      k8s-overview:
+        gnetId: 15661
+        revision: 2
+        datasource: Mimir
+      mimir-overview:
+        gnetId: 17607
+        revision: 13
+        datasource: Mimir
+      loki-app-logs:
+        gnetId: 13639
+        revision: 2
+        datasource: Loki
+
+# ============================================================
+# 수집 에이전트
+# ============================================================
+prometheus-node-exporter:
+  priorityClassName: system-node-critical
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: eks.amazonaws.com/compute-type
+              operator: NotIn
+              values:
+                - fargate
+
+# EKS 관리형 컴포넌트: 접근 불가한 것은 비활성화
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: true
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: true
+kubelet:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+  operatingSystems:
+    darwin:
+      enabled: false
+
+# ============================================================
+# PrometheusRules (로컬 평가 → Mimir Alertmanager로 alert 전송)
+# ============================================================
+defaultRules:
+  create: true
+  rules:
+    alertmanager: false
+    etcd: false
+    configReloaders: false
+    general: true
+    k8s: true
+    kubeApiserverAvailability: false
+    kubeApiserverBurnrate: false
+    kubeApiserverHistogram: false
+    kubeApiserverSlos: false
+    kubeControllerManager: false
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: false
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: false
+    prometheusOperator: false

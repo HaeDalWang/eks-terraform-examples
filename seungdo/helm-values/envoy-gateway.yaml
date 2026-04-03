@@ -12,7 +12,7 @@ deployment:
         memory: 256Mi
 hpa:
   enabled: true
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 5
 
 # Service 설정: Envoy Gateway Controller Service (관리용)

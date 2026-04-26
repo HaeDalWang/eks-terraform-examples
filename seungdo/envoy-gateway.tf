@@ -1,12 +1,17 @@
-# Envoy Gateway Namespace
-resource "kubernetes_namespace" "envoy_gateway" {
+# Envoy Gateway Namespace (deprecated 'kubernetes_namespace' → v1)
+moved {
+  from = kubernetes_namespace.envoy_gateway
+  to   = kubernetes_namespace_v1.envoy_gateway
+}
+
+resource "kubernetes_namespace_v1" "envoy_gateway" {
   metadata {
     name = "envoy-gateway-system"
   }
 }
 resource "helm_release" "envoy_gateway" {
   name       = "envoy-gateway"
-  namespace  = kubernetes_namespace.envoy_gateway.metadata[0].name
+  namespace  = kubernetes_namespace_v1.envoy_gateway.metadata[0].name
   repository = "oci://docker.io/envoyproxy"
   chart      = "gateway-helm"
   version    = "1.7.1"
@@ -21,7 +26,7 @@ resource "helm_release" "envoy_gateway" {
   ]
 
   depends_on = [
-    kubernetes_namespace.envoy_gateway,
+    kubernetes_namespace_v1.envoy_gateway,
     aws_acm_certificate_validation.project,
     helm_release.aws_load_balancer_controller
   ]
@@ -35,7 +40,7 @@ resource "kubectl_manifest" "envoy_proxy" {
     kind: EnvoyProxy
     metadata:
       name: envoy-proxy-config
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       provider:
         type: Kubernetes
@@ -71,13 +76,13 @@ resource "kubectl_manifest" "envoy_client_traffic_policy_proxy_protocol" {
     kind: ClientTrafficPolicy
     metadata:
       name: enable-proxy-protocol
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       targetRef:
         group: gateway.networking.k8s.io
         kind: Gateway
         name: default
-        namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+        namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
       enableProxyProtocol: true
   YAML
 
@@ -95,13 +100,13 @@ resource "kubectl_manifest" "envoy_backend_traffic_policy_request_buffer" {
     kind: BackendTrafficPolicy
     metadata:
       name: request-buffer-100mb
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       targetRefs:
         - group: gateway.networking.k8s.io
           kind: Gateway
           name: default
-          namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+          namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
       requestBuffer:
         limit: "100Mi"
   YAML
@@ -126,7 +131,7 @@ resource "kubectl_manifest" "envoy_gateway_class" {
         group: gateway.envoyproxy.io
         kind: EnvoyProxy
         name: envoy-proxy-config
-        namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+        namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
   YAML
 
   depends_on = [
@@ -143,7 +148,7 @@ resource "kubectl_manifest" "envoy_gateway" {
     kind: Gateway
     metadata:
       name: default
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       gatewayClassName: envoy-gateway-class
       listeners:

@@ -25,7 +25,7 @@ resource "helm_release" "argocd" {
       ]),
       lb_group_name = local.project
       gateway_name = "default"
-      gateway_namespace = "${kubernetes_namespace.envoy_gateway.metadata[0].name}"
+      gateway_namespace = "${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}"
     })
   ]
 

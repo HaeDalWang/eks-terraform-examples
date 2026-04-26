@@ -61,11 +61,19 @@ provider "aws" {
 #   }
 # }
 
-# Kubernetes 제공자 설정
+# Kubernetes 제공자 설정 (EKS: exec — kubeconfig 병행 방지, 리전 인자로 get-token 실패 감소)
 provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.this.token
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args = [
+      "eks", "get-token",
+      "--cluster-name", module.eks.cluster_name,
+      "--region", data.aws_region.current.id,
+    ]
+  }
 }
 
 # Helm 제공자 설정
@@ -75,8 +83,12 @@ provider "helm" {
     cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
     exec = {
       api_version = "client.authentication.k8s.io/v1beta1"
-      args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
       command     = "aws"
+      args = [
+        "eks", "get-token",
+        "--cluster-name", module.eks.cluster_name,
+        "--region", data.aws_region.current.id,
+      ]
     }
   }
   debug = true
@@ -86,6 +98,14 @@ provider "helm" {
 provider "kubectl" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.this.token
-  load_config_file       = false
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args = [
+      "eks", "get-token",
+      "--cluster-name", module.eks.cluster_name,
+      "--region", data.aws_region.current.id,
+    ]
+  }
+  load_config_file = false
 }

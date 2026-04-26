@@ -18,38 +18,30 @@ resource "kubernetes_secret_v1" "github_token" {
 }
 
 # Argo CD에 프로젝트 생성
-resource "kubernetes_manifest" "argocd_project" {
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "AppProject"
-
-    metadata = {
-      name      = local.project
-      namespace = kubernetes_namespace_v1.argocd.metadata[0].name
-      # 해당 프로젝트에 속한 애플리케이션이 존재할 경우 삭제 방지
-      finalizers = [
-        "resources-finalizer.argocd.argoproj.io"
-      ]
-    }
-
-    spec = {
-      description = "${local.project} 환경"
-      sourceRepos = ["*"]
-      destinations = [
-        {
-          name      = "*"
-          server    = "*"
-          namespace = "*"
-        }
-      ]
-      clusterResourceWhitelist = [
-        {
-          group = "*"
-          kind  = "*"
-        }
-      ]
-    }
-  }
+# hashicorp/kubernetes_manifest는 plan 시 OpenAPI 스키마 조회로 API 서버에 접속한다.
+# (참고: registry .kubernetes doc — Before you use this resource) 클러스터·provider 구성이
+# plan 단계에 완성되지 않으면 "no client config"가 난다. AppProject는 kubectl_manifest로 둔다.
+resource "kubectl_manifest" "argocd_project" {
+  yaml_body = <<-YAML
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: ${local.project}
+      namespace: ${kubernetes_namespace_v1.argocd.metadata[0].name}
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      description: ${local.project} 환경
+      sourceRepos:
+        - "*"
+      destinations:
+        - name: "*"
+          server: "*"
+          namespace: "*"
+      clusterResourceWhitelist:
+        - group: "*"
+          kind: "*"
+  YAML
 
   depends_on = [
     helm_release.argocd
@@ -71,7 +63,7 @@ resource "kubernetes_manifest" "argocd_project" {
 #     }
 
 #     spec = {
-#       project = kubernetes_manifest.argocd_project.manifest.metadata.name
+#       project = local.project
 
 #       sources = [
 #         {
@@ -101,6 +93,6 @@ resource "kubernetes_manifest" "argocd_project" {
 
 #   depends_on = [
 #     helm_release.argocd,
-#     kubernetes_manifest.argocd_project
+#     kubectl_manifest.argocd_project
 #   ]
 # }

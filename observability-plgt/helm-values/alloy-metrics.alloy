@@ -1,0 +1,83 @@
+// ########################################################
+// alloy-metrics (Deployment, clustered): 클러스터 전체 스크레이핑 (샤딩)
+// ########################################################
+// clustering.enabled = true 인 레플리카끼리 스크레이핑 대상을 나눠 가짐 (중복 없음, 수평 확장 가능)
+// kube-state-metrics + Pod annotation(prometheus.io/scrape) 기반 앱 메트릭 수집
+
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "annotated_pods" {
+  targets = discovery.kubernetes.pods.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_scrape"]
+    action        = "keep"
+    regex         = "true"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_annotation_prometheus_io_path"]
+    action        = "replace"
+    target_label  = "__metrics_path__"
+    regex         = "(.+)"
+  }
+  rule {
+    source_labels = ["__address__", "__meta_kubernetes_pod_annotation_prometheus_io_port"]
+    action        = "replace"
+    regex         = "([^:]+)(?::\\d+)?;(\\d+)"
+    replacement   = "$1:$2"
+    target_label  = "__address__"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+}
+
+prometheus.scrape "annotated_pods" {
+  targets    = discovery.relabel.annotated_pods.output
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  clustering {
+    enabled = true
+  }
+}
+
+// kube-state-metrics (K8s 리소스 메트릭)
+discovery.kubernetes "ksm" {
+  role = "service"
+  namespaces {
+    own_namespace = false
+    names         = ["monitoring"]
+  }
+}
+
+discovery.relabel "ksm" {
+  targets = discovery.kubernetes.ksm.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_service_name"]
+    action        = "keep"
+    regex         = "kube-state-metrics"
+  }
+}
+
+prometheus.scrape "ksm" {
+  targets    = discovery.relabel.ksm.output
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  clustering {
+    enabled = true
+  }
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
+  }
+}

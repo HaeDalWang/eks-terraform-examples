@@ -1,0 +1,48 @@
+# enable_thanos = true 일 때만 prometheus.yaml 위에 추가로 병합되는 오버레이
+#
+# 바뀌는 것:
+#   - retention: 15d(기본) → 6h (장기 저장은 S3+Thanos가 담당)
+#   - StatefulSet 전환 + headless gRPC 서비스 (Thanos Store API 통신용)
+#   - thanos-sidecar 컨테이너 추가 (2h 블록 → S3 업로드)
+#   - Pod Identity로 S3 접근 권한 부여
+
+server:
+  retention: "6h"
+
+  statefulSet:
+    enabled: true
+    headless:
+      gRPC:
+        enabled: true
+
+  serviceAccounts:
+    server:
+      annotations:
+        eks.amazonaws.com/role-arn: ${prometheus_sa_arn}
+
+  sidecarContainers:
+    thanos-sidecar:
+      image: quay.io/thanos/thanos:${thanos_image_tag}
+      args:
+        - sidecar
+        - --prometheus.url=http://127.0.0.1:9090
+        - --tsdb.path=/data
+        - --grpc-address=0.0.0.0:10901
+        - --http-address=0.0.0.0:10902
+        - --objstore.config-file=/etc/thanos/objstore.yml
+      ports:
+        - name: grpc
+          containerPort: 10901
+        - name: http
+          containerPort: 10902
+      volumeMounts:
+        - name: storage-volume
+          mountPath: /data
+        - name: thanos-objstore-config
+          mountPath: /etc/thanos
+          readOnly: true
+
+  extraVolumes:
+    - name: thanos-objstore-config
+      secret:
+        secretName: thanos-objstore-config

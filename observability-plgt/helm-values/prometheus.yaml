@@ -1,0 +1,41 @@
+# ref: https://github.com/prometheus-community/helm-charts/tree/main/charts/prometheus
+#
+# 이 예제의 메트릭 척추:
+#   Alloy(clustered) --remote_write--> Prometheus(이 차트, RW receiver) --sidecar(선택)--> S3
+#
+# Prometheus는 아무것도 직접 스크레이핑하지 않습니다 (serverFiles.scrape_configs 비움).
+# 모든 스크레이핑은 Alloy(alloy-metrics)가 수행하고 remote_write로 밀어넣습니다.
+# Thanos 관련 오버라이드는 enable_thanos=true일 때만 prometheus-thanos.yaml로 추가 병합됩니다.
+
+server:
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-remote-write-receiver
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+
+  ingress:
+    enabled: false # Envoy Gateway HTTPRoute로 노출
+
+# 차트 내장 scrape job을 전부 비움 (스크레이핑은 Alloy가 전담)
+serverFiles:
+  prometheus.yml:
+    scrape_configs: []
+
+alertmanager:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false

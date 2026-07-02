@@ -1,0 +1,53 @@
+# ref: https://grafana.com/docs/tempo/latest/setup/helm-chart/
+# monolithic(단일 바이너리) 모드. metrics-generator로 트레이스 → span metrics/service graph를
+# Prometheus RW receiver로 전송합니다 (Alloy를 거치지 않고 Tempo가 직접 전송).
+
+serviceAccount:
+  create: true
+  name: tempo
+  annotations:
+    eks.amazonaws.com/role-arn: ${sa_arn}
+
+replicas: 1
+
+tempo:
+  retention: 72h
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: ${s3_bucket}
+        endpoint: s3.${aws_region}.amazonaws.com
+        region: ${aws_region}
+        sse:
+          type: SSE-KMS
+          kms_key_id: ${kms_key_arn}
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: "http://prometheus-server.${namespace}.svc.cluster.local:80/api/v1/write"
+    processor:
+      service_graphs:
+        dimensions:
+          - service.namespace
+          - k8s.namespace.name
+      span_metrics:
+        dimensions:
+          - service.namespace
+          - k8s.namespace.name
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+persistence:
+  enabled: true
+  size: 10Gi

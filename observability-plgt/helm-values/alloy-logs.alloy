@@ -1,0 +1,97 @@
+// ########################################################
+// alloy-logs (DaemonSet): 노드 로컬 Pod 로그 tailing + 노드 메트릭
+// ########################################################
+// 노드마다 1개 배포되므로 scrape 대상은 항상 "이 노드"로 자동 한정됨 → clustering 불필요
+
+// ---- 노드 메트릭 (node-exporter 대체) ----
+prometheus.exporter.unix "node" { }
+
+prometheus.scrape "node" {
+  targets    = prometheus.exporter.unix.node.targets
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
+  }
+}
+
+// ---- Pod 로그 tailing (이 노드에 스케줄된 Pod만) ----
+discovery.kubernetes "pod" {
+  role = "pod"
+  selectors {
+    role  = "pod"
+    field = "spec.nodeName=" + sys.env("HOSTNAME")
+  }
+}
+
+discovery.relabel "pod_logs" {
+  targets = discovery.kubernetes.pod.targets
+
+  rule {
+    source_labels = ["__meta_kubernetes_namespace"]
+    target_label  = "namespace"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_name"]
+    target_label  = "pod"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_container_name"]
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_namespace", "__meta_kubernetes_pod_container_name"]
+    separator     = "/"
+    target_label  = "job"
+  }
+  rule {
+    source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"]
+    separator     = "/"
+    action        = "replace"
+    replacement   = "/var/log/pods/*$1/*.log"
+    target_label  = "__path__"
+  }
+  rule {
+    action       = "replace"
+    source_labels = ["__meta_kubernetes_pod_container_id"]
+    regex        = "^(\\w+):\\/\\/.+$"
+    replacement  = "$1"
+    target_label = "tmp_container_runtime"
+  }
+}
+
+local.file_match "pod_logs" {
+  path_targets = discovery.relabel.pod_logs.output
+}
+
+loki.source.file "pod_logs" {
+  targets    = local.file_match.pod_logs.targets
+  forward_to = [loki.process.pod_logs.receiver]
+}
+
+loki.process "pod_logs" {
+  stage.match {
+    selector = "{tmp_container_runtime=\"containerd\"}"
+    stage.cri {}
+    stage.labels {
+      values = {
+        flags  = "",
+        stream = "",
+      }
+    }
+  }
+
+  stage.label_drop {
+    values = ["tmp_container_runtime"]
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+  }
+}

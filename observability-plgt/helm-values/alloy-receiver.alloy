@@ -1,0 +1,51 @@
+// ########################################################
+// alloy-receiver (Deployment): OTLP 수신 게이트웨이
+// ########################################################
+// 애플리케이션이 보내는 OTLP metrics/logs/traces를 단일 지점에서 수신 후 각 백엔드로 분배
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.exporter.prometheus.default.input]
+    logs    = [otelcol.exporter.loki.default.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// OTLP metrics → Prometheus RW receiver
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/write"
+  }
+}
+
+// OTLP logs → Loki
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki-gateway.monitoring.svc.cluster.local:80/loki/api/v1/push"
+  }
+}
+
+// OTLP traces → Tempo
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo.monitoring.svc.cluster.local:4317"
+    tls {
+      insecure = true
+    }
+  }
+}

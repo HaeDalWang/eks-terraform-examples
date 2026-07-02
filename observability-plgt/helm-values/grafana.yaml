@@ -1,0 +1,69 @@
+# ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana
+# 단독 배포 (kube-prometheus-stack 미사용). Alloy가 수집을 전담하므로
+# Grafana는 조회 전용으로 필요한 최소 구성만 유지합니다.
+
+deploymentStrategy:
+  type: Recreate # PVC ReadWriteOnce 충돌 방지
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClassName: gp3
+
+adminUser: admin
+adminPassword: ${grafana_admin_password}
+
+ingress:
+  enabled: false # Envoy Gateway HTTPRoute로 노출
+
+serviceMonitor:
+  enabled: false
+
+sidecar:
+  datasources:
+    defaultDatasourceEnabled: false
+
+# 메트릭 datasource는 Thanos toggle에 따라 Prometheus 직결 / Thanos Query Frontend로 전환됩니다.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Metrics
+        uid: metrics
+        type: prometheus
+        url: ${metrics_query_service}
+        access: proxy
+        isDefault: true
+      - name: Loki
+        uid: loki
+        type: loki
+        url: http://loki-gateway.${namespace}.svc.cluster.local:80
+        access: proxy
+        jsonData:
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"traceId":"(\w+)"'
+              url: "$${__value.raw}"
+              datasourceUid: tempo
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        url: http://tempo.${namespace}.svc.cluster.local:3200
+        access: proxy
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            filterByTraceID: true
+          tracesToMetrics:
+            datasourceUid: metrics
+          serviceMap:
+            datasourceUid: metrics
+          nodeGraph:
+            enabled: true
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

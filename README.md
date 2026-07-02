@@ -22,6 +22,8 @@
 
 | 폴더명 | 설명 | 마지막 수정일 |
 |--------|------|----------------|
+| `observability-plgt/` | 단일 EKS 클러스터에 **Prometheus + Loki + Grafana + Tempo**를 **Alloy 단일 수집**으로 구성하는 프로덕션 구조 예제. Thanos는 toggle(`enable_thanos`)로 sidecar+Store Gateway+Query+Query Frontend+Compactor 추가 (순수 K8s manifest, 공식 Helm 차트 없음) | **2026-07-02** |
+| `lgtm-stack/` | 멀티 어카운트 멀티 클러스터(central/agent) 환경에서 **Mimir + Loki + Tempo + Grafana** 관측성 스택을 운영하는 프로덕션 구조 예제 | (git log 기준으로 필요 시 업데이트) |
 | `seungdo/` | 개인 실환경/PoC용 **EKS + Karpenter + 여러가지 | **2026-03-16** |
 | `envoy-gateway-nlb-integration/` | Envoy Gateway + **AWS NLB(TLS termination)** + **ExternalDNS + Gateway API(HTTPRoute)** 최소 예제 (샘플 nginx 앱/HTTPRoute 포함) | **2026-03-16** |
 | `cilium-cni/` | Cilium CNI + Gateway API (Envoy/Cilium/Traefik 조합) 실험용 예제. 네트워크 정책·IngressRoute·HTTPRoute 패턴 포함 | **2026-01-01** |

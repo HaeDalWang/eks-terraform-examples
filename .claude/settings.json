@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(curl -s https://grafana.github.io/helm-charts/index.yaml -o /tmp/grafana-index.yaml)",
+      "Bash(curl -s https://prometheus-community.github.io/helm-charts/index.yaml -o /tmp/prom-index.yaml)",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import yaml; print\\('ok'\\)\")",
+      "Bash(curl -s https://raw.githubusercontent.com/bitnami/charts/main/bitnami/thanos/Chart.yaml)",
+      "Bash(curl -s https://charts.bitnami.com/bitnami/index.yaml -o /tmp/bitnami-index.yaml)",
+      "Read(//tmp/**)",
+      "Bash(helm version *)",
+      "Bash(curl -sI https://charts.bitnami.com/bitnami/index.yaml)",
+      "Bash(curl -sL https://charts.bitnami.com/bitnami/index.yaml -o /tmp/bitnami-index2.yaml)",
+      "Bash(curl -sL -o /dev/null -w \"%{http_code}\\\\n\" https://charts.bitnami.com/bitnami/index.yaml)",
+      "WebFetch(domain:artifacthub.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(helm repo *)",
+      "Bash(helm show *)",
+      "Bash(helm show values prometheus-community/prometheus --version 29.14.0 > /tmp/prom-values.yaml 2>&1 *)",
+      "Bash(curl -s https://api.github.com/repos/thanos-io/thanos/releases/latest)",
+      "mcp__plugin_everything-claude-code_context7__resolve-library-id",
+      "mcp__plugin_everything-claude-code_context7__query-docs",
+      "Bash(helm pull *)",
+      "Bash(grep -n \"^  [a-z-]*:$\\\\|enabled:\\\\|job_name:\")",
+      "Bash(docker run *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(helm template *)",
+      "Bash(grep -B3 \"name: prometheus-server$\" /tmp/prom-render.yaml)",
+      "Bash(python3 -c ' *)",
+      "Bash(echo \"tempo exit: $?\")",
+      "Bash(echo \"prom base exit: $?\")",
+      "Bash(echo \"fmt exit: $?\")",
+      "Bash(echo \"validate exit: $?\")"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

@@ -57,8 +57,15 @@ resource "helm_release" "envoy_gateway" {
   ]
 }
 
-# EnvoyProxy: NLB Service 설정 템플릿
-# Gateway가 생성하는 Envoy Pod/Service에 NLB annotation을 적용
+# EnvoyProxy: NLB Service 설정 + 데이터플레인 Envoy Proxy pod 메트릭 노출
+# Gateway가 생성하는 실제 트래픽 처리 Pod(Envoy Proxy, 컨트롤러 아님)에
+# NLB annotation과 Prometheus 스크레이핑 annotation을 적용합니다.
+#
+# [트레이스 입구 메트릭]
+# 여기서 노출되는 :19001/stats/prometheus 가 실제 요청이 지나가는 지점의
+# RED 메트릭(envoy_http_downstream_rq_total, envoy_cluster_upstream_rq_time 등)입니다.
+# 컨트롤러(envoy-gateway) 자체 메트릭은 gateway-helm 차트 기본값에 이미
+# prometheus.io/scrape annotation이 있어 별도 설정 없이도 스크레이핑됩니다.
 resource "kubectl_manifest" "envoy_proxy" {
   yaml_body = <<-YAML
     apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -67,9 +74,18 @@ resource "kubectl_manifest" "envoy_proxy" {
       name: envoy-proxy-config
       namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
     spec:
+      telemetry:
+        metrics:
+          prometheus: {}
       provider:
         type: Kubernetes
         kubernetes:
+          envoyDeployment:
+            pod:
+              annotations:
+                prometheus.io/scrape: "true"
+                prometheus.io/port: "19001"
+                prometheus.io/path: "/stats/prometheus"
           envoyService:
             type: LoadBalancer
             annotations:
@@ -84,6 +100,7 @@ resource "kubectl_manifest" "envoy_proxy" {
 ])}
               service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
               service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+              service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
   YAML
 
 depends_on = [helm_release.envoy_gateway]

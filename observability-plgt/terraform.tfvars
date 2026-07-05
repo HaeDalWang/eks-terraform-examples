@@ -4,10 +4,10 @@
 
 # 네트워크
 vpc_cidr    = "10.210.0.0/16"
-domain_name = "example.com" # 실제 Route53 도메인으로 변경
+domain_name = "seungdobae.com" # 실제 Route53 도메인으로 변경
 
 # EKS
-eks_cluster_version             = "1.35"
+eks_cluster_version             = "1.36"
 eks_node_ami_alias_bottlerocket = "bottlerocket@1.54.0"
 
 # 기본 인프라 Helm 차트 버전
@@ -25,7 +25,7 @@ tempo_chart_version              = "1.24.4" # monolithic (그리고 tempo-distri
 grafana_chart_version            = "10.5.15"
 
 # Grafana
-grafana_admin_password = "changeme" # 실제 배포 시 변경 필수
+grafana_admin_password = "admin" # 실제 배포 시 변경 필수
 
 # Thanos (toggle, 기본 off)
 # true로 켜면 Prometheus sidecar + Store Gateway + Query + Query Frontend + Compactor가

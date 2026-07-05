@@ -160,6 +160,21 @@ annotations:
   # prometheus.io/path: "/metrics"  # 기본값 /metrics 가 아니면 지정
 ```
 
+## 트래픽 입구(Envoy Gateway) 메트릭
+
+트레이스를 입구부터 보려면 실제 요청이 지나가는 **데이터플레인 Envoy Proxy pod**(컨트롤러 아님)의 RED 메트릭이 필요합니다. `envoy-gateway.tf`의 `EnvoyProxy` 리소스에서 두 가지를 설정합니다:
+
+- `spec.telemetry.metrics.prometheus`: Envoy Proxy의 Prometheus pull 방식 메트릭 노출 (기본 활성화, 명시적으로 둠)
+- `spec.provider.kubernetes.envoyDeployment.pod.annotations`: 데이터플레인 pod에 `prometheus.io/scrape=true` + `port=19001` + `path=/stats/prometheus` 부여 → Alloy(alloy-metrics)가 annotation 기반으로 자동 스크레이핑
+
+컨트롤러(envoy-gateway 자체) 메트릭은 `gateway-helm` 차트 기본값에 이미 `prometheus.io/scrape` annotation이 있어 별도 설정 없이 스크레이핑됩니다 (`:19001/metrics`). 두 종류를 헷갈리지 않아야 합니다 — 컨트롤러 메트릭은 xDS 동기화/어드미션 등 컨트롤 플레인 지표이고, 실제 요청 latency/에러율/처리량 같은 입구 트래픽 지표는 데이터플레인 쪽에서만 나옵니다.
+
+주요 데이터플레인 메트릭:
+
+- `envoy_http_downstream_rq_total` / `envoy_http_downstream_rq_xx` (상태 코드별 요청 수)
+- `envoy_cluster_upstream_rq_time` (백엔드 응답 시간)
+- `envoy_cluster_upstream_rq_retry` / `_timeout` (재시도, 타임아웃)
+
 ## 보안 (프로덕션 체크리스트)
 
 이 예제는 인증 없이 노출되어 있습니다. 프로덕션에서는 다음을 추가해야 합니다:

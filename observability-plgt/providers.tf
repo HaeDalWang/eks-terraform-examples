@@ -2,9 +2,9 @@
 terraform {
   backend "s3" {
     region         = "ap-northeast-2"
-    bucket         = "your-terraform-state" # 실제 버킷명으로 변경
+    bucket         = "seungdobae-terraform-state" # 실제 버킷명으로 변경
     key            = "observability-plgt/terraform.tfstate"
-    dynamodb_table = "your-terraform-lock" # 실제 테이블명으로 변경
+    dynamodb_table = "seungdobae-terraform" # 실제 테이블명으로 변경
     encrypt        = true
   }
 }

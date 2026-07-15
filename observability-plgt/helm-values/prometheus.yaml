@@ -26,10 +26,32 @@ server:
   ingress:
     enabled: false # Envoy Gateway HTTPRoute로 노출
 
-# 차트 내장 scrape job을 전부 비움 (스크레이핑은 Alloy가 전담)
-serverFiles:
-  prometheus.yml:
-    scrape_configs: []
+# 차트 내장 scrape job(kubernetes-nodes 등)을 전부 비움 (스크레이핑은 Alloy가 전담).
+# Helm은 맵 값을 키 단위로 deep-merge하므로 scrapeConfigs: {} 로는 기본 job이 지워지지
+# 않고, 각 job을 개별적으로 enabled: false 처리해야 한다.
+# (serverFiles.prometheus.yml에 scrape_configs를 직접 넣는 방식도 차트 템플릿이
+#  이를 다시 통째로 toYaml 덤프하면서 scrape_configs 키가 중복 정의되어 파싱 에러가 남)
+scrapeConfigs:
+  prometheus:
+    enabled: false
+  kubernetes-api-servers:
+    enabled: false
+  kubernetes-nodes:
+    enabled: false
+  kubernetes-nodes-cadvisor:
+    enabled: false
+  kubernetes-service-endpoints:
+    enabled: false
+  kubernetes-service-endpoints-slow:
+    enabled: false
+  kubernetes-services:
+    enabled: false
+  kubernetes-pods:
+    enabled: false
+  kubernetes-pods-slow:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
 
 alertmanager:
   enabled: false

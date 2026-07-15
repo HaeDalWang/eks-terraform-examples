@@ -29,17 +29,21 @@ loki:
   ruler:
     enable_api: true
   # S3 경로: loki/ prefix, SSE-KMS
+  # object_store.type이 없으면 thanosStorageConfig 헬퍼가 s3/gcs/azure 중 어느 것도
+  # 렌더링하지 않아 s3 블록 자체가 비어버리고, endpoint를 명시하지 않으면
+  # thanos-io/objstore의 s3 provider가 "no s3 endpoint in config file"로 실패한다.
   storage:
-    type: s3
     use_thanos_objstore: true
     bucketNames:
       chunks: ${s3_bucket}
       ruler: ${s3_bucket}
       admin: ${s3_bucket}
     object_store:
+      type: s3
       storage_prefix: loki
       s3:
         bucket_name: ${s3_bucket}
+        endpoint: s3.${aws_region}.amazonaws.com
         region: ${aws_region}
         sse:
           type: SSE-KMS

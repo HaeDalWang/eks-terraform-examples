@@ -31,15 +31,12 @@ module "vpc" {
 }
 
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id       = module.vpc.vpc_id
-  service_name = "com.amazonaws.${data.aws_region.current.id}.s3"
-  subnet_ids   = module.vpc.private_subnets
+  vpc_id            = module.vpc.vpc_id
+  service_name      = "com.amazonaws.${data.aws_region.current.id}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = module.vpc.private_route_table_ids
 
   tags = {
     Name = "${local.project}-s3-endpoint"
-  }
-
-  lifecycle {
-    ignore_changes = [subnet_ids]
   }
 }

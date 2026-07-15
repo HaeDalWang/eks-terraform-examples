@@ -36,6 +36,7 @@ resource "kubectl_manifest" "httproute_grafana" {
 
   depends_on = [
     kubectl_manifest.envoy_gateway,
-    helm_release.grafana
+    helm_release.grafana,
+    time_sleep.wait_for_dns_cleanup
   ]
 }

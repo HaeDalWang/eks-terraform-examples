@@ -8,7 +8,7 @@ domain_name = "seungdobae.com" # 실제 Route53 도메인으로 변경
 
 # EKS
 eks_cluster_version             = "1.36"
-eks_node_ami_alias_bottlerocket = "bottlerocket@1.54.0"
+eks_node_ami_alias_bottlerocket = "bottlerocket@1.62.1"
 
 # 기본 인프라 Helm 차트 버전
 karpenter_chart_version                    = "1.8.3"

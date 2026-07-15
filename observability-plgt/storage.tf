@@ -16,6 +16,8 @@ resource "kubernetes_namespace_v1" "monitoring" {
   metadata {
     name = "monitoring"
   }
+
+  depends_on = [time_sleep.wait_for_cluster_access]
 }
 
 # ########################################################

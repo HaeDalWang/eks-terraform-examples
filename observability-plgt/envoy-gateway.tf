@@ -33,15 +33,17 @@ resource "aws_acm_certificate_validation" "project" {
 # ########################################################
 # Envoy Gateway
 # ########################################################
-resource "kubernetes_namespace" "envoy_gateway" {
+resource "kubernetes_namespace_v1" "envoy_gateway" {
   metadata {
     name = "envoy-gateway-system"
   }
+
+  depends_on = [time_sleep.wait_for_cluster_access]
 }
 
 resource "helm_release" "envoy_gateway" {
   name       = "envoy-gateway"
-  namespace  = kubernetes_namespace.envoy_gateway.metadata[0].name
+  namespace  = kubernetes_namespace_v1.envoy_gateway.metadata[0].name
   repository = "oci://docker.io/envoyproxy"
   chart      = "gateway-helm"
   version    = var.envoy_gateway_chart_version
@@ -51,10 +53,25 @@ resource "helm_release" "envoy_gateway" {
   ]
 
   depends_on = [
-    kubernetes_namespace.envoy_gateway,
+    kubernetes_namespace_v1.envoy_gateway,
     aws_acm_certificate_validation.project,
     helm_release.aws_load_balancer_controller
   ]
+}
+
+# Envoy 데이터플레인 NLB 정리 대기 (destroy 데드락 방지)
+#
+# EnvoyProxy(type: LoadBalancer)가 런타임에 생성하는 NLB Service는 Terraform 리소스가
+# 아니라 그래프가 모릅니다. destroy 시 Gateway CR을 지우면 envoy-gateway 컨트롤러가
+# 비동기로 NLB를 정리하는데, 컨트롤러(helm_release.envoy_gateway)와
+# aws_load_balancer_controller가 곧바로 삭제되면 NLB를 지울 주체가 사라져
+# ENI가 subnet에 남고 namespace/subnet/IGW가 무한 대기에 걸립니다.
+#
+# 이 time_sleep을 envoy_proxy와 envoy_gateway helm 사이에 끼워
+# 삭제 순서를 "leaf CR 삭제 → 300s 대기(컨트롤러 생존) → 컨트롤러 삭제"로 강제합니다.
+resource "time_sleep" "wait_for_envoy_lb" {
+  depends_on       = [helm_release.envoy_gateway]
+  destroy_duration = "300s"
 }
 
 # EnvoyProxy: NLB Service 설정 + 데이터플레인 Envoy Proxy pod 메트릭 노출
@@ -72,7 +89,7 @@ resource "kubectl_manifest" "envoy_proxy" {
     kind: EnvoyProxy
     metadata:
       name: envoy-proxy-config
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       telemetry:
         metrics:
@@ -103,7 +120,7 @@ resource "kubectl_manifest" "envoy_proxy" {
               service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
   YAML
 
-depends_on = [helm_release.envoy_gateway]
+depends_on = [time_sleep.wait_for_envoy_lb]
 }
 
 # ClientTrafficPolicy: Proxy Protocol 활성화 (NLB와 쌍으로 사용)
@@ -113,13 +130,13 @@ resource "kubectl_manifest" "envoy_client_traffic_policy" {
     kind: ClientTrafficPolicy
     metadata:
       name: enable-proxy-protocol
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       targetRef:
         group: gateway.networking.k8s.io
         kind: Gateway
         name: default
-        namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+        namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
       enableProxyProtocol: true
   YAML
 
@@ -139,7 +156,7 @@ resource "kubectl_manifest" "envoy_gateway_class" {
         group: gateway.envoyproxy.io
         kind: EnvoyProxy
         name: envoy-proxy-config
-        namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+        namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
   YAML
 
   depends_on = [kubectl_manifest.envoy_proxy]
@@ -153,7 +170,7 @@ resource "kubectl_manifest" "envoy_gateway" {
     kind: Gateway
     metadata:
       name: default
-      namespace: ${kubernetes_namespace.envoy_gateway.metadata[0].name}
+      namespace: ${kubernetes_namespace_v1.envoy_gateway.metadata[0].name}
     spec:
       gatewayClassName: envoy-gateway-class
       listeners:

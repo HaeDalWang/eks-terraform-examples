@@ -28,6 +28,10 @@ terraform {
       source  = "alekc/kubectl"
       version = "~> 2.1.3"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13.1"
+    }
   }
 }
 
